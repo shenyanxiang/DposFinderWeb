@@ -1,18 +1,11 @@
 <!-- /src/components/views/Home.vue -->
+<script setup lang = "ts">
+</script>
+
 <template>
-    <div class="home-app">
+    <div>
         <h1>Home</h1>
         <p>Home page content goes here.</p>
     </div>
 </template>
 
-<script lang = 'ts'>
-    export default {
-        name: 'Home',
-        data() {
-            return {
-                msg: 'Welcome to Your Vue.js + TypeScript App'
-            }
-        } 
-    }
-</script>
