@@ -2,10 +2,10 @@
     "configurations": [
         {
             "type": "chrome",
-            "name": "http://127.0.0.1:5173/",
+            "name": "http://127.0.0.1:8001/",
             "request": "launch",
-            "url": "http://127.0.0.1:5173/",
-            "cwd": "${workspaceFolder}/client",
+            "url": "http://127.0.0.1:8001/",
+            "cwd": "${workspaceRoot}/client",
         }
     ]
 }

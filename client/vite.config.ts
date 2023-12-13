@@ -18,6 +18,7 @@ const pathSrc = path.resolve(__dirname, 'src')
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './',
   resolve: {
     alias: {
       '~/': `${pathSrc}/`,
@@ -29,6 +30,9 @@ export default defineConfig({
         additionalData: `@use "~/styles/element/index.scss" as *;`,
       },
     },
+  },
+  server: {
+    port: 8001,
   },
   plugins: [
     vue(),
