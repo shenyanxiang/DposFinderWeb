@@ -8,8 +8,12 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     About: typeof import('./components/views/About.vue')['default']
+    Analysis: typeof import('./components/views/Analysis.vue')['default']
     BaseHeader: typeof import('./components/layouts/BaseHeader.vue')['default']
     BaseSide: typeof import('./components/layouts/BaseSide.vue')['default']
+    Browse: typeof import('./components/views/Browse.vue')['default']
+    Contact: typeof import('./components/views/Contact.vue')['default']
+    Download: typeof import('./components/views/Download.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
     ElDatePicker: typeof import('element-plus/es')['ElDatePicker']
@@ -22,9 +26,11 @@ declare module 'vue' {
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
     ElTag: typeof import('element-plus/es')['ElTag']
     HelloWorld: typeof import('./components/HelloWorld.vue')['default']
+    Help: typeof import('./components/views/Help.vue')['default']
     Home: typeof import('./components/views/Home.vue')['default']
     Logos: typeof import('./components/Logos.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    Statistics: typeof import('./components/views/Statistics.vue')['default']
   }
 }

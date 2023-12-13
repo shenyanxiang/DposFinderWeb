@@ -1,31 +1,38 @@
 <script lang="ts" setup>
-import { toggleDark } from "~/composables";
+
 </script>
 
 <template>
-  <el-menu class="el-menu-demo" mode="horizontal" router=true>
-    <el-menu-item index="/">Element Plus</el-menu-item>
-    <el-sub-menu index="2">
-      <template #title>Workspace</template>
-      <el-menu-item index="2-1">item one</el-menu-item>
-      <el-menu-item index="2-2">item two</el-menu-item>
-      <el-menu-item index="2-3">item three</el-menu-item>
-      <el-sub-menu index="2-4">
-        <template #title>item four</template>
-        <el-menu-item index="2-4-1">item one</el-menu-item>
-        <el-menu-item index="2-4-2">item two</el-menu-item>
-        <el-menu-item index="2-4-3">item three</el-menu-item>
-      </el-sub-menu>
-    </el-sub-menu>
-    <el-menu-item index="3" disabled>Info</el-menu-item>
-    <el-menu-item index="4">Orders</el-menu-item>
-    <el-menu-item h="full" @click="toggleDark()">
-      <button
-        class="border-none w-full bg-transparent cursor-pointer"
-        style="height: var(--ep-menu-item-height)"
-      >
-        <i inline-flex i="dark:ep-moon ep-sunny" />
-      </button>
+  <el-menu class="el-menu-demo" mode="horizontal" :router="true" default-active="/home" :ellipsis="false" background-color="#e1f3d8">
+    <el-menu-item index="0">
+      <img
+        style="width: 100px"
+        src="../../assets/vue.svg"
+        alt="Element logo"
+      />
     </el-menu-item>
+    <div class="flex-grow" />
+    <el-menu-item index="/home"><el-icon color="#409EFC"><HomeFilled /></el-icon>Home</el-menu-item>
+    <el-menu-item index="/analysis"><el-icon color="#409EFC"><TrendCharts /></el-icon>Analysis</el-menu-item>
+    <el-sub-menu index="">
+      <template #title><el-icon><Grid /></el-icon>Database</template>
+      <el-menu-item index="/browse">browse</el-menu-item>
+      <el-menu-item index="/statistics">statistics</el-menu-item>
+    </el-sub-menu>
+    <el-menu-item index="/help"><el-icon color="#409EFC"><QuestionFilled /></el-icon>Help</el-menu-item>
+    <el-menu-item index="/download"><el-icon color="#409EFC"><BrushFilled /></el-icon>Download</el-menu-item>
+    <el-menu-item index="/contact"><el-icon color="#409EFC"><Comment /></el-icon>Contact</el-menu-item>
   </el-menu>
 </template>
+
+<script lang="ts" setup>
+import { ref } from "vue";
+import {
+  HomeFilled,
+  Grid,
+  TrendCharts,
+  BrushFilled,
+  QuestionFilled,
+  Comment
+} from "@element-plus/icons-vue";
+</script>
