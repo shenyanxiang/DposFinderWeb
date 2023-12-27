@@ -1,6 +1,6 @@
 $--colors: (
   "primary": (
-    "base": green,
+    "base": #589ef8,
   ),
   "success": (
     "base": #21ba45,
@@ -29,7 +29,8 @@ $--colors: (
 @forward "element-plus/theme-chalk/src/common/var.scss" with (
   // do not use same name, it will override.
   $colors: $--colors,
-  $button-padding-horizontal: ("default": 50px)
+  $button-padding-horizontal: ("default": 50px),
+  $font-size: ("base": 18px),
 );
 
 // if you want to import all
