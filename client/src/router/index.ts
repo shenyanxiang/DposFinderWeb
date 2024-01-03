@@ -43,6 +43,11 @@ const router = createRouter({
       path: '/contact',
       name: 'contact',
       component: () => import('../components/views/Contact.vue')
+    },{
+      path: '/result/:job_id',
+      name: 'result',
+      component: () => import('../components/views/Result.vue'),
+      props: true
     }
   ]
 })

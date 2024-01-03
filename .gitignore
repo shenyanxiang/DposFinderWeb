@@ -1,1 +1,4 @@
 server/dpsce.py
+server/upload
+server/environment.yml
+server/jobs.db

@@ -1,6 +1,3 @@
-<script lang="ts" setup>
-
-</script>
 
 <template>
   <el-menu class="el-menu-demo" mode="horizontal" :router="true" default-active="/home" :ellipsis="false" background-color="#e1f3d8">
