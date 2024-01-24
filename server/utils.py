@@ -1,5 +1,5 @@
 import os
-
+import pandas as pd
 
 def dump_datetime(value):
     if value is None:
@@ -33,3 +33,25 @@ def check_genome_fasta_file(fasta_file):
         else:
             return False
         
+def parse_protein_prediction(job_dir):
+    filename = os.path.join(job_dir,'outputs/result.tsv')
+    df = pd.read_csv(filename, sep='\t')
+    df.columns = ['protein_id', 'prediction_score', 'length']
+    result = df.to_json(orient='records')
+    return result
+        
+def parse_genome_prediction(job_dir):
+    filename = os.path.join(job_dir,'outputs/result.tsv')
+    df = pd.read_csv(filename, sep='\t')
+    df.columns = ['contig_id', 'locus_tag', 'location', 'prediction_score', 'length']
+    result = df.to_json(orient='records')
+    return result
+
+def read_secondary_structure(file):
+    with open(file, 'r') as f:
+        lines = f.readlines()
+    amino_acids = lines[1].strip()
+    secondary_structure = lines[2].strip()
+    
+    results = [{'pos': i+1, 'aa': aa, 'ss': ss} for i, (aa, ss) in enumerate(zip(amino_acids, secondary_structure))]
+    return results

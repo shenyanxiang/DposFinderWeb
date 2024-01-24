@@ -20,9 +20,14 @@ const router = createRouter({
       component: () => import('../components/views/Analysis.vue')
     },
     {
-      path: '/browse',
-      name: 'browse',
-      component: () => import('../components/views/Browse.vue')
+      path: '/browsemain',
+      name: 'browsemain',
+      component: () => import('../components/views/Browsemain.vue')
+    },
+    {
+      path: '/browsepre',
+      name: 'browsepre',
+      component: () => import('../components/views/Browsepre.vue')
     },
     {
       path: '/statistics',

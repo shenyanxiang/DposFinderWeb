@@ -2,3 +2,8 @@ server/dpsce.py
 server/upload
 server/environment.yml
 server/jobs.db
+server/model
+server/jobs
+server/softwares
+client/node_modules
+node_modules
