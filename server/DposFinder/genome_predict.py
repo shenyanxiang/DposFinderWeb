@@ -7,6 +7,7 @@ import subprocess
 import torch
 import pandas as pd
 import time
+from packages.utils import draw_attn
 
 
 parser = argparse.ArgumentParser(
@@ -14,6 +15,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-f', default='', type=str)
 parser.add_argument('--fasta_path', type=str, default='data/',
                     help='path to fasta files')
+parser.add_argument('--file_type', type=str, default='fasta', help='file type of input files')
 parser.add_argument('--no_cuda', action='store_true', help='do not use cuda')
 
 args = parser.parse_args()
@@ -32,6 +34,7 @@ def genome2protein(args):
     with open(os.path.join(output_dir, f"{file}"), 'r') as f:
         for record in SeqIO.parse(f, 'fasta'):
             strand = '+' if record.description.split()[6]=='1' else '-'
+            record.id = record.id.rsplit('_', 1)[0]+'#gp'+record.id.split('_')[-1]
             record.id = f"{record.id}#{record.description.split()[2]}..{record.description.split()[4]}#({strand})"
             with open(os.path.join(output_dir, f"{filename}_screened.fasta"), 'a') as f:
                 if len(record.seq) >= 100:
@@ -43,6 +46,19 @@ def genome2protein(args):
     os.remove(os.path.join(output_dir, f"{file}.gff"))
     return
 
+def gbk2protein(args):
+    output_dir = os.path.join(args.fasta_path, 'outputs')
+    filename = 'sequence'
+    file = 'sequence.fasta'
+    file_path = os.path.join(args.fasta_path, file)
+    with open(file_path, 'r') as f:
+        for record in SeqIO.parse(f, 'fasta'):
+            with open(os.path.join(output_dir, f"{filename}_screened.fasta"), 'a') as f:
+                if len(record.seq) >= 100:
+                    if record.seq[-1] == '*':
+                        f.write(f">{record.id}\n{record.seq[:-1]}\n")
+                    else:
+                        f.write(f">{record.id}\n{record.seq}\n")
 
 def DepoF(args):
     dir = os.path.join(args.fasta_path, 'outputs')
@@ -68,8 +84,8 @@ def DepoF(args):
                 for i in range(len(id)):
                     f.write(f">{id[i]}#score:{prob[i]:.3f}\n{protein[i]}\n")
 
-        result = pd.DataFrame({'contig_id': [i.rsplit('_', 1)[0] for i in id], 'locus_tag': ['gp'+i.rsplit('_', 1)[-1].split('#')[0] for i in id], 
-                               'location': [i.split('#')[1] + ' ' + i.split('#')[2] for i in id], 'prediction_score': prob, 'length': [len(i) for i in protein]})
+        result = pd.DataFrame({'contig_id': [i.split('#')[0] for i in id], 'locus_tag': [i.split('#')[1] for i in id], 
+                               'location': [i.split('#')[2] + ' ' + i.split('#')[3] for i in id], 'prediction_score': prob, 'length': [len(i) for i in protein]})
         result.to_csv(os.path.join(dir, "result.tsv"), sep='\t', index=False)
 
     print("Depolymerase prediction finished")
@@ -108,7 +124,7 @@ def downstreamAnalysis(args):
     dir = os.path.join(args.fasta_path, 'outputs')
     protein_list = []
     for record in SeqIO.parse(os.path.join(dir, 'sequence_screened_Dpos.fasta'), 'fasta'):
-        id = record.id.split('#')[0].rsplit('_', 1)[0]+'_gp'+record.id.split('#')[0].split('_')[-1]
+        id = record.id.split('#')[0]+'_'+record.id.split('#')[1]
         protein_list.append(id)
         protein = record.seq
         os.makedirs(os.path.join(dir, id), exist_ok=True)
@@ -138,6 +154,7 @@ def downstreamAnalysis(args):
         except subprocess.CalledProcessError:
             print(f"{filename} s4pred failed")
             continue
+        draw_attn(protein_dir, protein)
         
 
 
@@ -150,9 +167,12 @@ if __name__ == '__main__':
             torch.set_default_tensor_type('torch.cuda.FloatTensor')
     os.makedirs(os.path.join(args.fasta_path, 'outputs'), exist_ok=True)
     print("*"*20+"Start predicting"+"*"*20)
-    print("1. Extract proteins from genomes, Prodigal is running...")
-    genome2protein(args)
-    
+    if args.file_type == 'fasta':
+        print("1. Extract proteins from genomes, Prodigal is running...")
+        genome2protein(args)
+    else:
+        print("1. Extract proteins from genbank files...")
+        gbk2protein(args)
     print("*"*50)
     print("2. Predicting depolymerase...")
     start_time = time.time()

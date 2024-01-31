@@ -73,7 +73,7 @@ def run_protein_prediction(app, id, job_dir):
             with open(os.path.join(job_dir, 'error.log'), 'w') as f:
                 f.write(str(e))
 
-def run_genome_prediction(app, id, job_dir):
+def run_genome_prediction(app, id, job_dir, file_type):
     with app.app_context():
         try:
             Jobs.query.get(id).status = 'Waiting in a queue'
@@ -82,7 +82,7 @@ def run_genome_prediction(app, id, job_dir):
                 time.sleep(10)
             Jobs.query.get(id).status = 'Running'
             db.session.commit()
-            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/genome_predict.py --fasta_path {job_dir}"
+            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/genome_predict.py --fasta_path {job_dir} --file_type {file_type}"
 
             os.system(cmd)
 
@@ -98,6 +98,10 @@ def run_genome_prediction(app, id, job_dir):
 def connect_to_db():
     conn = psycopg2.connect(database="DposDB", user=os.environ.get('POSTGRESQL_USER'), password=os.environ.get('POSTGRESQL_PASSWD'), host="localhost", port="5432")
     return conn
+
+@app.route('/test', methods=['GET'])
+def test():
+    return jsonify(message="test", status=200)
 
 @app.route('/api/download/<path:filename>', methods=['GET'])
 def download(filename):
@@ -151,28 +155,39 @@ def analysis_genome():
     job_dir = os.path.join('./jobs/', job_id)
     if not os.path.exists(job_dir):
         os.makedirs(job_dir)
-    sequence = os.path.join(job_dir, 'sequence.fasta')
 
     if input_method == 'file':
-        with open(sequence, 'wb') as f:
-            f.write(request.files['file'].read())
+        file_content = request.files['file'].read()
+        if file_content[0] != '>':
+            file_type = 'gbk'
+            with open(os.path.join(job_dir, 'sequence.gbk'), 'wb') as f:
+                f.write(file_content)
+            os.system(f"/public/yxshen/.conda/envs/DposFinder/bin/python ./gbk2faa.py {job_dir}/sequence.gbk")
+        else:
+            file_type = 'fasta'
+            with open(os.path.join(job_dir, 'sequence.fasta'), 'wb') as f:
+                f.write(file_content)
     elif input_method == 'text':
-        with open(sequence, 'w') as f:
-            f.write(request.form['inputGenome'])
+        with open(os.path.join(job_dir, 'sequence.fasta'), 'w') as f:
+            file_content = request.form['inputGenome']
+            f.write(file_content)
+            file_type = 'fasta'
+
+    sequence = os.path.join(job_dir, 'sequence.fasta')
             
     # check input file "sequence.fasta"
-    if check_genome_fasta_file(sequence):
+    if (file_content[0] == '>' and check_genome_fasta_file(sequence)) or (file_content[0] != '>' and check_protein_fasta_file(sequence)):
         num_sequence = len(
             [1 for line in open(sequence, 'r') if line.startswith(">")])
         job = Jobs(job_id=job_id, ip=remote_ip, task='genome-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.utcnow())
         db.session.add(job)
         db.session.commit()
-        thread = Thread(target=run_genome_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'save_attn': False})
+        thread = Thread(target=run_genome_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'file_type': file_type})
         thread.start()
         return jsonify(message=f"Job {job.job_id} is successfully submitted", category="success", status=200)
     else:
         os.system(f'rm -r ./jobs/{job_id}')
-        return jsonify(message=f"Invalid Input! Only FASTA Format of genome sequence is supported.", category="error", status=404)
+        return jsonify(message=f"Invalid Input! Only FASTA or GenBank Format of genome sequence is supported.", category="error", status=404)
     
 @app.route('/api/result/<job_id>', methods=['GET'])
 def get_results(job_id):

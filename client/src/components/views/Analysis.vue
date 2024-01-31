@@ -50,14 +50,14 @@
                   <el-form-item label="Choose input method">
                     <el-radio-group v-model="inputMethodGenome">
                       <el-radio label="text">Input sequence</el-radio>
-                      <el-radio label="file">Upload a fasta file</el-radio>
+                      <el-radio label="file">Upload a fasta or genbank file</el-radio>
                     </el-radio-group>
                   </el-form-item>
                   <el-form-item label="Input genome sequence(s)" v-if="inputMethodGenome === 'text'">
                     <el-input v-model="genomeForm.inputGenome" :autosize="{ minRows: 4, maxRows: 8 }" type="textarea" placeholder=">genome sequence..." clearable/>
                     <el-button type="info" style="margin-top: 10px;" @click="showGenomeExample">Show example</el-button>
                   </el-form-item>
-                  <el-form-item label="Upload a genome FASTA format file" v-else>
+                  <el-form-item label="Upload a genome FASTA or GenBank format file" v-else>
                     <el-upload
                       ref="uploadGenome"
                       :limit="1"
@@ -114,7 +114,7 @@ const inputMethod = ref('text');
 const inputMethodGenome = ref('text');
 const showProteinExample = async () => {
   try {
-    const response = await fetch('/protein_example.fasta');
+    const response = await fetch('./protein_example.fasta');
     if (!response.ok) {
       throw new Error('HTTP error ' + response.status);
     }
@@ -126,7 +126,7 @@ const showProteinExample = async () => {
 };
 const showGenomeExample = async () => {
   try {
-    const response = await fetch('/genome_example.fasta');
+    const response = await fetch('./genome_example.fasta');
     if (!response.ok) {
       throw new Error('HTTP error ' + response.status);
     }

@@ -68,8 +68,8 @@
               <el-text size="large">Job id: {{ job_id }}</el-text>
               <el-divider />
               <p>
-                <vxe-button status="primary" @click="downloadSequence">Download sequences(.fasta)</vxe-button>
-                <vxe-button class="ml-3" status="primary" @click="exportDataEvent">Download result table(.csv)</vxe-button>
+                <vxe-button status="primary" @click="downloadSequence">Download sequences (.fasta)</vxe-button>
+                <vxe-button class="ml-3" status="primary" @click="exportDataEvent">Download result table (.csv)</vxe-button>
               </p>
               <vxe-table
                 ref="tableRef"
@@ -77,12 +77,12 @@
                 size = "medium"
                 :row-config="{isCurrent: true, isHover: true}"
                 :data="tableData">
-                <vxe-column field="contig_id" title="contig id"></vxe-column>
-                <vxe-column field="prediction_score" title="prediction score"></vxe-column>
-                <vxe-column field="length" title="length(a.a.)"></vxe-column>
-                <vxe-column field="locus_tag" title="locus tag"></vxe-column>
-                <vxe-column field="location" title="coordinate"></vxe-column>
-                <vxe-column title="show detail">
+                <vxe-column field="contig_id" title="Contig id"></vxe-column>
+                <vxe-column field="prediction_score" title="Prediction score" :title-help="{message: '自定义帮助提示信息'}"></vxe-column>
+                <vxe-column field="length" title="Length (a.a.)"></vxe-column>
+                <vxe-column field="locus_tag" title="Locus tag"></vxe-column>
+                <vxe-column field="location" title="Coordinates"></vxe-column>
+                <vxe-column title="Detail">
                   <template #default="{ row }">
                     <vxe-button status="primary" @click="showDetail(row)">Detail</vxe-button>
                   </template>
@@ -208,8 +208,8 @@
               <el-text size="large">Job id: {{ job_id }}</el-text>
               <el-divider />
               <p>
-                <vxe-button status="primary" @click="downloadSequenceP">Download sequences(.fasta)</vxe-button>
-                <vxe-button class="ml-3" status="primary" @click="exportDataEventP">Download result table(.csv)</vxe-button>
+                <vxe-button status="primary" @click="downloadSequenceP">Download sequences (.fasta)</vxe-button>
+                <vxe-button class="ml-3" status="primary" @click="exportDataEventP">Download result table (.csv)</vxe-button>
               </p>
               <vxe-table
                 ref="tableRefP"
@@ -217,10 +217,10 @@
                 size = "medium"
                 :row-config="{isCurrent: true, isHover: true}"
                 :data="tableDataP">
-                <vxe-column field="protein_id" title="protein id"></vxe-column>
-                <vxe-column field="prediction_score" title="prediction score"></vxe-column>
-                <vxe-column field="length" title="length (a.a.)"></vxe-column>
-                <vxe-column title="show detail">
+                <vxe-column field="protein_id" title="Protein id"></vxe-column>
+                <vxe-column field="prediction_score" title="Prediction score"></vxe-column>
+                <vxe-column field="length" title="Length (a.a.)"></vxe-column>
+                <vxe-column title="Detail">
                   <template #default="{ row }">
                     <vxe-button status="primary" @click="showDetailP(row)">Detail</vxe-button>
                   </template>
@@ -420,6 +420,12 @@ const getJobInfo = async () => {
         jobInfo.current_time = res.data.data.current_time;
         jobInfo.email = res.data.data.email;
         jobInfo.status = res.data.data.status;
+        if (jobInfo.task_type === 'genome-level depolymerase prediction') {
+          jobType.value = true;
+        }
+        else {
+          jobType.value = false;
+        }
 
         if (res.data.data.status === 'Finished') {
           ifJobRunning.value = false;
@@ -562,12 +568,6 @@ const showDetail = (row: RowVO) => {
 onMounted(async () => {
   await getJobInfo();
   intervalId = setInterval(getJobInfo, 10000);
-  if (jobInfo.task_type === 'genome-level depolymerase prediction') {
-    jobType.value = true;
-  }
-  else {
-    jobType.value = false;
-  }
 });
 
 onUnmounted(() => {

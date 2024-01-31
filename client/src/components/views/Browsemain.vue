@@ -132,11 +132,7 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
   },
   columns: [
     { type: 'seq', width: 60, fixed: 'left' },
-    { field: 'dpos_accession', type: "html", title: 'Depolymerase accession', minWidth: 160, sortable: true,
-        formatter: ({ cellValue }) => {
-            return `<a href="https://www.ncbi.nlm.nih.gov/protein/${cellValue}" target="_blank">${cellValue}</a>`;
-        } 
-    },
+    { field: 'dpos_accession', type: "html", title: 'Depolymerase accession', minWidth: 160, sortable: true},
     { field: 'phage', title: 'Phage name', minWidth: 160, sortable: true },
     { field: 'experimental', title: 'Experiment', sortable: true, minWidth: 160,
         filters: [
