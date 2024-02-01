@@ -1,105 +1,170 @@
-<script setup lang="ts">
-import axios from 'axios';
-import { reactive, onMounted, onUnmounted, ref } from 'vue';
-import { VxeGridProps, VxePagerEvents, VXETable, VxeGridInstance, VxeGridListeners } from 'vxe-table'
-
-interface RowVO {
-  phage_id: string
-  Host: string
-  locus_tag: string
-  coordinate: string
-  prediction_score: number
-  length: number
-  protein_sequence: string
-}
-
-const xGrid = ref<VxeGridInstance<RowVO>>()
-
-const gridOptions = reactive<VxeGridProps<RowVO>>({
-  border: true,
-  loading: false,
-  height: 600,
-  columns: [
-    { type: 'seq', width: 50 },
-    { field: 'phage_id', title: 'Phage ID'},
-    { field: 'Host', title: 'Host' },
-    { field: 'locus_tag', title: 'Locus Tag'},
-    { field: 'coordinate', title: 'Coordinates'},
-    { field: 'prediction_score', title: 'Prediction Score' },
-    { field: 'length', title: 'Length' },
-    { title: 'View Details', slots: { default: 'operate' }}
-  ],
-  columnConfig: {
-    resizable: true
-  },
-  proxyConfig: {
-    ajax: {
-      query: async () => {
-        const list = await getDposInfo();
-        return list;
-      }
-    }
-  }
-})
-
-const tablePage = reactive({
-  total: 7759,
-  currentPage: 1,
-  pageSize: 10
-})
-
-const handlePageChange: VxePagerEvents.PageChange = ({ currentPage, pageSize }) => {
-  tablePage.currentPage = currentPage
-  tablePage.pageSize = pageSize
-}
-
-const getDposInfo = async () => {
-  try {
-    const path = `http://127.0.0.1:5001/api/show_dpos`;
-    const response = await axios.get(path);
-    console.log(response.data.data);
-    return response.data.data;
-  } catch (error) {
-    console.log(error);
-    return [];
-  }
-};
-
-const gridEvents: VxeGridListeners<RowVO> = {
-  pageChange ({ currentPage, pageSize }) {
-    if (gridOptions.pagerConfig) {
-      gridOptions.pagerConfig.currentPage = currentPage
-      gridOptions.pagerConfig.pageSize = pageSize
-    }
-  }
-}
-
-</script>
-
 <template>
   <div class="browsepre">
     <el-row>
       <el-col :span="16" :offset="4">
-        <p>
-          <vxe-button status="primary" @click="downloadSequence">Download sequences(.fasta)</vxe-button>
-          <vxe-button class="ml-3" status="primary" @click="exportDataEvent">Download result table(.csv)</vxe-button>
-        </p>
-        <vxe-grid ref="xGrid" v-bind="gridOptions" v-on="gridEvents">
-          <template #operate="{ row }">
-            <vxe-button status="primary" content="Detail" @click="saveRowEvent(row)"></vxe-button>
-          </template>
-          <template #pager>
-            <vxe-pager
-              :layouts="['Sizes', 'PrevJump', 'PrevPage', 'Number', 'NextPage', 'NextJump', 'FullJump', 'Total']"
-              v-model:current-page="tablePage.currentPage"
-              v-model:page-size="tablePage.pageSize"
-              :total="tablePage.total"
-              @page-change="handlePageChange">
-            </vxe-pager>
-          </template>
+        <h1 class = "mt-6">Browse predicted depolymerases by DposFinder</h1>
+        <p>we. If you are interested in any depolymerase, you can view the detailed information of the depolymerase by clicking on the link "Detail".</p>
+        <el-button type="info" @click="Browsemain">Browse curated depolymerases</el-button>
+        <el-button type="info" disabled>Browse predicted depolymerases by DposFinder</el-button>
+        <br><br><br>
+        <vxe-grid ref="xGrid" v-bind="gridOptions">
+            <template #toolbar_tools>
+                <vxe-form :data="formData" @submit="searchEvent" @reset="resetEvent">
+                  <vxe-form-item field="name">
+                        <template #default>
+                            <vxe-input v-model="formData.name" type="text"></vxe-input>
+                        </template>
+                    </vxe-form-item>
+                    <vxe-form-item>
+                        <template #default>
+                            <vxe-button type="submit" status="primary" content="Search"></vxe-button>
+                            <vxe-button type="reset" content="Reset"></vxe-button>
+                        </template>
+                  </vxe-form-item>
+                </vxe-form>
+            </template>
         </vxe-grid>
       </el-col>
     </el-row>
   </div>
 </template>
 
+<script lang="ts" setup>
+import { useRouter } from 'vue-router';
+import { reactive, ref } from 'vue'
+import { VxeGridInstance, VxeGridProps } from 'vxe-table'
+import XEUtils from 'xe-utils'
+
+const router = useRouter();
+
+const Browsemain = () => {
+  router.push('/browsemain');
+};
+
+interface RowVO {
+  [key: string]: any
+}
+
+const serveApiUrl = 'http://127.0.0.1:5001'
+const xGrid = ref<VxeGridInstance<RowVO>>()
+const formData = reactive({
+  name: ''
+})
+
+const gridOptions = reactive<VxeGridProps<RowVO>>({
+  showOverflow: true,
+  border: 'inner',
+  height: 548,
+  columnConfig: {
+    resizable: true
+  },
+  printConfig: {
+    columns: [
+      { field: 'dpos_accession' },
+      { field: 'phage' },
+      { field: 'experimental' },
+      { field: 'reference' },
+    ]
+  },
+  sortConfig: {
+    trigger: 'cell',
+    remote: true,
+    defaultSort: {
+      field: 'experimental',
+      order: 'desc'
+    }
+  },
+  filterConfig: {
+    remote: true
+  },
+  pagerConfig: {
+    enabled: true,
+    // currentPage: 1,
+    pageSize: 15,
+    pageSizes: [5, 15, 20, 50, 100, 200]
+  },
+  exportConfig: {
+    // 默认选中类型
+    type: 'csv',
+    // 局部自定义类型
+    types: ['csv', 'html', 'xml', 'txt'],
+    // 自定义数据量列表
+    modes: ['current', 'all']
+  },
+  proxyConfig: {
+    sort: true, // 启用排序代理，当点击排序时会自动触发 query 行为
+    filter: true, // 启用筛选代理，当点击筛选时会自动触发 query 行为
+    // 对应响应结果 { result: [], page: { total: 100 } }
+    props: {
+      result: 'result', // 配置响应结果列表字段
+      total: 'page.total' // 配置响应结果总页数字段
+    },
+    ajax: {
+      // 接收 Promise 对象
+      query: ({ page, sorts, filters }) => {
+        const queryParams: any = Object.assign({}, formData)
+        // 处理排序条件
+        const firstSort = sorts[0]
+        if (firstSort) {
+          queryParams.sort = firstSort.field
+          queryParams.order = firstSort.order
+        }
+        // 处理筛选条件
+        filters.forEach(({ field, values }) => {
+          queryParams[field] = values.join(',')
+        })
+        return fetch(`${serveApiUrl}/api/ex_dpos/page/list/${page.pageSize}/${page.currentPage}?${XEUtils.serialize(queryParams)}`).then(response => response.json())
+      },
+      // 被某些特殊功能所触发，例如：导出数据 mode=all 时，会触发该方法并对返回的数据进行导出
+      queryAll: () => fetch(`${serveApiUrl}/api/ex_dpos/all`).then(response => response.json())
+    }
+  },
+  toolbarConfig: {
+    export: true,
+    print: true,
+    slots: {
+    //   buttons: 'toolbar_buttons',
+      tools: 'toolbar_tools'
+    }
+  },
+  columns: [
+    { type: 'seq', width: 60, fixed: 'left' },
+    { field: 'dpos_accession', type: "html", title: 'Depolymerase accession', minWidth: 160, sortable: true},
+    { field: 'phage', title: 'Phage name', minWidth: 160, sortable: true },
+    { field: 'experimental', title: 'Experiment', sortable: true, minWidth: 160,
+        filters: [
+            { label: 'yes', value: 'yes'},
+            { label: 'no', value: 'no' }
+        ],
+    },
+    { field: 'reference', type: "html", title: 'Reference', sortable: true, minWidth: 160, 
+        formatter: ({ cellValue }) => {
+            return `<a href="https://doi.org/${cellValue}" target="_blank">doi:${cellValue}</a>`;
+        }
+    },
+    {
+      field: 'dpos_accession', type: 'html', title: 'Detail', width: 120, fixed: 'right',
+        formatter: ({ cellValue }) => {
+            return `<a href="/#/browse/${cellValue}" target="_blank">Detail</a>`;
+        }
+    }
+  ]
+})
+
+
+
+const searchEvent = () => {
+  const $grid = xGrid.value
+  if ($grid) {
+    $grid.commitProxy('query')
+  }
+}
+
+const resetEvent = () => {
+  const $grid = xGrid.value
+  if ($grid) {
+    $grid.commitProxy('reload')
+  }
+}
+
+</script>

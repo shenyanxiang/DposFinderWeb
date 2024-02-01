@@ -78,7 +78,8 @@
                 :row-config="{isCurrent: true, isHover: true}"
                 :data="tableData">
                 <vxe-column field="contig_id" title="Contig id"></vxe-column>
-                <vxe-column field="prediction_score" title="Prediction score" :title-help="{message: '自定义帮助提示信息'}"></vxe-column>
+                <vxe-column field="prediction_score" title="Prediction score" :title-help="{message: 'Range from [0,1]. Proteins with a score greater than 0.5 are predicted as depolymerases. The higher the score, the higher the reliability.'}"></vxe-column>
+                <vxe-column field="identity" title="Identity (%)" :title-help="{message: 'Blastp identity against curated depolymerases'}"></vxe-column>
                 <vxe-column field="length" title="Length (a.a.)"></vxe-column>
                 <vxe-column field="locus_tag" title="Locus tag"></vxe-column>
                 <vxe-column field="location" title="Coordinates"></vxe-column>
@@ -90,39 +91,39 @@
               </vxe-table>
               <el-dialog v-model="DetailVisible" title="Detail">
                 <el-collapse v-model="activeNames">
-                  <el-collapse-item title="Basic Information" name="1">
+                  <el-collapse-item title="Basic information" name="1">
                     <div>
                       <el-descriptions :column="1" border size = "large">
                         <el-descriptions-item
-                          label = "Protein Name"
+                          label = "Protein name"
                           label-align="left"
                           align="right"
                         >
                           {{ protein_id }}
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Protein Length"
+                          label = "Protein length"
                           label-align="left"
                           align="right"
                         >
                           {{ proteinInfo.protein_length }}
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Coordinate"
+                          label = "Coordinates"
                           label-align="left"
                           align="right"
                         >
                           {{ proteinInfo.coordinate }}
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Molecular Weight"
+                          label = "Molecular weight"
                           label-align="left"
                           align="right"
                         >
-                          {{ proteinInfo.molecular_weight }}
+                          {{ proteinInfo.molecular_weight }} Da
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Isoelectric Point"
+                          label = "Isoelectric point"
                           label-align="left"
                           align="right"
                         >
@@ -136,7 +137,7 @@
                           {{ proteinInfo.aromaticity }}
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Instability Index"
+                          label = "Instability index"
                           label-align="left"
                           align="right"
                         >
@@ -152,7 +153,7 @@
                       </el-descriptions>
                     </div>
                   </el-collapse-item>
-                  <el-collapse-item title="Protein Sequence" name="2">
+                  <el-collapse-item title="Protein sequence" name="2">
                     <el-text>
                       >{{ protein_id }}
                     </el-text>
@@ -161,7 +162,21 @@
                       {{ proteinInfo.protein_sequence }}
                     </el-text>
                   </el-collapse-item>
-                  <el-collapse-item title="Sequence Attention Map" name="3">
+                  <el-collapse-item title="Blastp result" name="3">
+                    <el-table :data="proteinInfo.blast_result" height="250" style="width: 100%">
+                      <el-table-column prop="hit_id" label="Depolymerase id" />
+                      <el-table-column prop="identity" label="Identity (%)" />
+                      <el-table-column prop="query_coverage" label="Query coverage (%)" />
+                      <el-table-column prop="evalue" label="E-value" />
+                      <el-table-column prop="bit_score" label="Bit Score" />
+                      <el-table-column label="View" :width="100">
+                        <template #default="{ row }">
+                          <el-link type="primary" size="small" :href="`/#/browse/${row.hit_id}`" target="_blank">View</el-link>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </el-collapse-item>
+                  <el-collapse-item title="Sequence attention and secondary structure" name="4">
                     <div>
                       <el-scrollbar height="400px"><el-image :src="proteinInfo.attn_url"/></el-scrollbar>
                     </div>
@@ -218,7 +233,8 @@
                 :row-config="{isCurrent: true, isHover: true}"
                 :data="tableDataP">
                 <vxe-column field="protein_id" title="Protein id"></vxe-column>
-                <vxe-column field="prediction_score" title="Prediction score"></vxe-column>
+                <vxe-column field="prediction_score" title="Prediction score" :title-help="{message: 'Range from [0,1]. Proteins with a score greater than 0.5 are predicted as depolymerases. The higher the score, the higher the reliability.'}"></vxe-column>
+                <vxe-column field="identity" title="Identity (%)" :title-help="{message: 'Blastp identity against curated depolymerases'}"></vxe-column>
                 <vxe-column field="length" title="Length (a.a.)"></vxe-column>
                 <vxe-column title="Detail">
                   <template #default="{ row }">
@@ -228,32 +244,32 @@
               </vxe-table>
               <el-dialog v-model="DetailVisibleP" title="Detail">
                 <el-collapse v-model="activeNames">
-                  <el-collapse-item title="Basic Information" name="1">
+                  <el-collapse-item title="Basic information" name="1">
                     <div>
                       <el-descriptions :column="1" border size = "large">
                         <el-descriptions-item
-                          label = "Protein Name"
+                          label = "Protein name"
                           label-align="left"
                           align="right"
                         >
                           {{ protein_id }}
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Protein Length"
+                          label = "Protein length"
                           label-align="left"
                           align="right"
                         >
                           {{ proteinInfo.protein_length }}
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Molecular Weight"
+                          label = "Molecular weight"
                           label-align="left"
                           align="right"
                         >
-                          {{ proteinInfo.molecular_weight }}
+                          {{ proteinInfo.molecular_weight }} Da
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Isoelectric Point"
+                          label = "Isoelectric point"
                           label-align="left"
                           align="right"
                         >
@@ -267,7 +283,7 @@
                           {{ proteinInfo.aromaticity }}
                         </el-descriptions-item>
                         <el-descriptions-item
-                          label = "Instability Index"
+                          label = "Instability index"
                           label-align="left"
                           align="right"
                         >
@@ -283,7 +299,7 @@
                       </el-descriptions>
                     </div>
                   </el-collapse-item>
-                  <el-collapse-item title="Protein Sequence" name="2">
+                  <el-collapse-item title="Protein sequence" name="2">
                     <el-text>
                       >{{ protein_id }}
                     </el-text>
@@ -292,7 +308,21 @@
                       {{ proteinInfo.protein_sequence }}
                     </el-text>
                   </el-collapse-item>
-                  <el-collapse-item title="Sequence Attention Map" name="3">
+                  <el-collapse-item title="Blastp result" name="3">
+                    <el-table :data="proteinInfo.blast_result" height="250" style="width: 100%">
+                      <el-table-column prop="hit_id" label="Depolymerase id" />
+                      <el-table-column prop="identity" label="Identity (%)" />
+                      <el-table-column prop="query_coverage" label="Query coverage (%)" />
+                      <el-table-column prop="evalue" label="E-value" />
+                      <el-table-column prop="bit_score" label="Bit Score" />
+                      <el-table-column label="View" :width="100">
+                        <template #default="{ row }">
+                          <el-link type="primary" size="small" :href="`/#/browse/${row.hit_id}`" target="_blank">View</el-link>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </el-collapse-item>
+                  <el-collapse-item title="Sequence attention and secondary structure" name="4">
                     <div>
                       <el-scrollbar height="400px"><el-image :src="proteinInfo.attn_url"/></el-scrollbar>
                     </div>
@@ -332,6 +362,7 @@ interface RowVOP {
   protein_id: string
   prediction_score: number
   length: number
+  identity: number
 }
 
 interface RowVO {
@@ -340,6 +371,7 @@ interface RowVO {
   location: string
   prediction_score: number
   length: number
+  identity: number
 }
 
 const tableDataP = ref<RowVOP[]>([])
@@ -382,6 +414,7 @@ const proteinInfo = reactive({
   flexibility: '',
   protein_sequence: '',
   attn_url: '',
+  blast_result: [],
   // secondary_structure: [{aa: '', ss: '', pos: ''}],
 });
 
@@ -504,6 +537,15 @@ const showDetailP = (row: RowVOP) => {
     .catch((error) => {
       console.error(error);
     });
+  const blast_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/blast`;
+  axios.get(blast_path)
+    .then((res) => {
+      console.log(res.data);
+      proteinInfo.blast_result = res.data.data.rows;
+    })
+    .catch((error) => {
+      console.error(error);
+    });
     // const ss_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/ss`;
     // axios.get(ss_path)
     //   .then(res => {
@@ -539,6 +581,15 @@ const showDetail = (row: RowVO) => {
       console.log(res.data);
       const blob = new Blob([res.data], { type: 'image/png' });
       proteinInfo.attn_url = window.URL.createObjectURL(blob);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+  const blast_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/blast`;
+  axios.get(blast_path)
+    .then((res) => {
+      console.log(res.data);
+      proteinInfo.blast_result = res.data.data.rows;
     })
     .catch((error) => {
       console.error(error);

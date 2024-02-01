@@ -36,14 +36,21 @@ def check_genome_fasta_file(fasta_file):
 def parse_protein_prediction(job_dir):
     filename = os.path.join(job_dir,'outputs/result.tsv')
     df = pd.read_csv(filename, sep='\t')
-    df.columns = ['protein_id', 'prediction_score', 'length']
+    df.columns = ['protein_id', 'prediction_score', 'length', 'identity']
     result = df.to_json(orient='records')
     return result
         
 def parse_genome_prediction(job_dir):
     filename = os.path.join(job_dir,'outputs/result.tsv')
     df = pd.read_csv(filename, sep='\t')
-    df.columns = ['contig_id', 'locus_tag', 'location', 'prediction_score', 'length']
+    df.columns = ['contig_id', 'locus_tag', 'location', 'prediction_score', 'length', 'identity']
+    result = df.to_json(orient='records')
+    return result
+
+def parse_blast_result(dir):
+    filename = os.path.join(dir, 'Blastp_summary.tsv')
+    df = pd.read_csv(filename, sep='\t')
+    df.columns = ['hit_id', 'identity', 'query_coverage', 'evalue', 'bit_score']
     result = df.to_json(orient='records')
     return result
 

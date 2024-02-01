@@ -2,9 +2,9 @@
   <div class="browsemain">
     <el-row>
       <el-col :span="16" :offset="4">
-        <h1 class = "mt-6">Browse well-characterized depolymerases</h1>
-        <p>we</p>
-        <el-button type="info" disabled>Browse well-characterized depolymerases</el-button>
+        <h1 class = "mt-6">Browse curated depolymerases</h1>
+        <p>we manually curated 386 well-characterized or experimentally validated depolymerase sequences. If you are interested in any depolymerase, you can view the detailed information of the depolymerase by clicking on the link "Detail".</p>
+        <el-button type="info" disabled>Browse curated depolymerases</el-button>
         <el-button type="info" @click="Browsepre">Browse predicted depolymerases by DposFinder</el-button>
         <br><br><br>
         <vxe-grid ref="xGrid" v-bind="gridOptions">
@@ -144,9 +144,16 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
         formatter: ({ cellValue }) => {
             return `<a href="https://doi.org/${cellValue}" target="_blank">doi:${cellValue}</a>`;
         }
+    },
+    {
+      field: 'dpos_accession', type: 'html', title: 'Detail', width: 120, fixed: 'right',
+        formatter: ({ cellValue }) => {
+            return `<a href="/#/browse/${cellValue}" target="_blank">Detail</a>`;
+        }
     }
   ]
 })
+
 
 
 const searchEvent = () => {

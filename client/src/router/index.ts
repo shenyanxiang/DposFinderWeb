@@ -53,6 +53,12 @@ const router = createRouter({
       name: 'result',
       component: () => import('../components/views/Result.vue'),
       props: true
+    },
+    {
+      path: '/browse/:protein_id',
+      name: 'browse',
+      component: () => import('../components/views/Browse.vue'),
+      props: true
     }
   ]
 })

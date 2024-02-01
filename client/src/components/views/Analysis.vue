@@ -81,7 +81,23 @@
             </el-card>
           </el-col>
         </el-row>
-        <el-row><h1>{{ msg }}</h1></el-row>
+        <el-row>
+          <el-col :span="12" :offset="6">
+            <h2 class="ml-5">Retrieve Results</h2>
+            <h4 class="ml-5">You can input the job id to retrieve the results or monitor the progress of the job</h4>
+            <el-card class="box-card">
+              <el-form label-position="top">
+                <el-form-item label="Please input job id">
+                  <el-input placeholder="job id" v-model="job_id" clearable/>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="JobRetrieve">Retrieve</el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+    
+          </el-col>
+        </el-row>
       </el-main>
     </div>
 </template>
@@ -136,7 +152,6 @@ const showGenomeExample = async () => {
     console.error('Failed to fetch genome example:', error);
   }
 };
-const msg = ref('');
 
 const handleExceed: UploadProps['onExceed'] = (files) => {
   upload.value!.clearFiles();
@@ -273,6 +288,13 @@ const onSubmitGenome = () => {
       console.log(error);
     });
   }
+};
+
+const job_id = ref('');
+
+const JobRetrieve = () => {
+  console.log(job_id);
+  router.push({ path: `/result/${job_id.value}` });
 };
 
 </script>

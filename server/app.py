@@ -158,7 +158,7 @@ def analysis_genome():
 
     if input_method == 'file':
         file_content = request.files['file'].read()
-        if file_content[0] != '>':
+        if file_content.decode('utf-8')[0] != '>':
             file_type = 'gbk'
             with open(os.path.join(job_dir, 'sequence.gbk'), 'wb') as f:
                 f.write(file_content)
@@ -176,7 +176,7 @@ def analysis_genome():
     sequence = os.path.join(job_dir, 'sequence.fasta')
             
     # check input file "sequence.fasta"
-    if (file_content[0] == '>' and check_genome_fasta_file(sequence)) or (file_content[0] != '>' and check_protein_fasta_file(sequence)):
+    if (file_content.decode('utf-8')[0] == '>' and check_genome_fasta_file(sequence)) or (file_content.decode('utf-8')[0] != '>' and check_protein_fasta_file(sequence)):
         num_sequence = len(
             [1 for line in open(sequence, 'r') if line.startswith(">")])
         job = Jobs(job_id=job_id, ip=remote_ip, task='genome-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.utcnow())
@@ -186,8 +186,8 @@ def analysis_genome():
         thread.start()
         return jsonify(message=f"Job {job.job_id} is successfully submitted", category="success", status=200)
     else:
-        os.system(f'rm -r ./jobs/{job_id}')
-        return jsonify(message=f"Invalid Input! Only FASTA or GenBank Format of genome sequence is supported.", category="error", status=404)
+        # os.system(f'rm -r ./jobs/{job_id}')
+        return jsonify(message=f"Invalid Input! Only FASTA or GenBank Format of genome sequence is supported. {file_content.decode('utf-8')[0]}", category="error", status=404)
     
 @app.route('/api/result/<job_id>', methods=['GET'])
 def get_results(job_id):
@@ -262,6 +262,22 @@ def get_secondary_structure(job_id, protein_id):
                    data=results,
                    status=200)
 
+@app.route('/api/result/<job_id>/<protein_id>/blast', methods=['GET'])
+def get_blast_result(job_id, protein_id):
+    job = Jobs.query.filter_by(job_id=job_id).first()
+    if job is not None:
+        protein_dir = os.path.join('./jobs', job_id, 'outputs', protein_id)
+        blast_result = parse_blast_result(protein_dir)
+        results = job.serialize
+        results['rows'] = json.loads(blast_result)
+        return jsonify(message=f"Get {protein_id} blast result",
+                        category="success",
+                        data=results,
+                        status=200)
+    else:
+        return jsonify(message=f"Job ID:{job_id} is not existed.",
+                       status=404)
+
 @app.route('/api/ex_dpos/page/list/<int:pageSize>/<int:currentPage>', methods=['GET'])
 def getDposList(pageSize, currentPage):
     name = request.args.get('name')
@@ -310,6 +326,24 @@ def getAllDpos():
     filtered_data = [{key: row[i] for i, key in enumerate(keys)} for row in rows]
 
     return jsonify(filtered_data)
+
+@app.route('/api/protein/<protein_id>', methods=['GET'])
+def get_protein_info(protein_id):
+    protein_dir = os.path.join('./dpos_db/valid_dpos', protein_id)
+    information_file = os.path.join(protein_dir, 'information.tsv')
+    df = pd.read_csv(information_file, sep='\t')
+    results = {}
+    results['rows'] = json.loads(df.to_json(orient='records'))
+    results['attn_url'] = f'/public/yxshen/DposFinderWeb/server/dpos_db/valid_dpos/{protein_id}/attn/img/{protein_id}.png'
+    return jsonify(message=f"Get {protein_id} information",
+                    category="success",
+                    data=results,
+                    status=200)
+@app.route('/api/protein/<protein_id>/attn', methods=['GET'])
+def get_attn(protein_id):
+    protein_dir = os.path.join('./dpos_db/valid_dpos', protein_id)
+    attn_file = os.path.join(protein_dir, 'attn', 'img', f'{protein_id}.png')
+    return send_file(attn_file, mimetype='image/jpeg')
 
 if __name__ == '__main__':
     app.config['JSON_AS_ASCII'] = False

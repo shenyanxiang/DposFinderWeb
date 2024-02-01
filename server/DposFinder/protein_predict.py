@@ -41,7 +41,7 @@ def DepoF(args):
         for i in range(len(id)):
             f.write(f">{id[i]}#score:{prob[i]:.3f}\n{protein[i]}\n")
 
-    result = pd.DataFrame({'protein_id': id, 'prediction_score': prob, 'length': [len(i) for i in protein]})
+    result = pd.DataFrame({'protein_id': id, 'prediction_score': prob, 'length': [len(i) for i in protein], 'identity': ['-' for i in protein]})
     result.to_csv(os.path.join(dir, "result.tsv"), sep='\t', index=False)
 
     print("Depolymerase prediction finished")
@@ -57,6 +57,32 @@ def downstreamAnalysis(args):
         os.makedirs(os.path.join(dir, id), exist_ok=True)
         with open(os.path.join(dir, id, f"{id}.fasta"), 'a') as f:
             f.write(f">{id}\n{protein}\n")
+        blastp_command = f"/public/software/ncbi-blast-2.10.0+/bin/blastp -query {os.path.join(dir, id, f'{id}.fasta')} -db ./dpos_blast_db/dpos_blast_db -outfmt 6 -out {os.path.join(dir, id, 'Blastp.tsv')} -num_alignments 5"
+        try:
+            subprocess.run(blastp_command, shell=True, check=True)
+        except subprocess.CalledProcessError:
+            print(f"{id} Blastp failed")
+        blast_result = pd.read_csv(os.path.join(dir, id, "Blastp.tsv"), sep='\t', header=None)
+        blast_result.columns = ['query_id', 'subject_id', 'identity', 'alignment_length', 'mismatches', 'gap_opens', 'q_start', 'q_end', 's_start', 's_end', 'evalue', 'bit_score']
+        blast_result_summary = pd.DataFrame(columns = ['hit_id', 'identity', 'query_coverage', 'evalue', 'bit_score'])
+
+        for i in range(len(blast_result)):
+            hit_id = blast_result['subject_id'][i]
+            identity = blast_result['identity'][i]
+            identity = round(identity, 1)
+            query_coverage = (blast_result['q_end'][i]-blast_result['q_start'][i]+1) / len(protein)
+            query_coverage = round(query_coverage*100, 1)
+            evalue = blast_result['evalue'][i]
+            bit_score = blast_result['bit_score'][i]
+            blast_result_summary.loc[i] = [hit_id, identity, query_coverage, evalue, bit_score]
+        
+        blast_result_summary.to_csv(os.path.join(dir, id, "Blastp_summary.tsv"), sep='\t', index=False)
+
+        identity = blast_result_summary[blast_result_summary['bit_score'] == blast_result_summary['bit_score'].max()]['identity'].values[0]
+        result = pd.read_csv(os.path.join(dir, "result.tsv"), sep='\t')
+        result.loc[result['protein_id'] == id, 'identity'] = identity
+        result.to_csv(os.path.join(dir, "result.tsv"), sep='\t', index=False)
+
         X=ProteinAnalysis(str(protein))
         information = pd.DataFrame({'protein_name': [id], 'length': [str(len(str(protein))) + ' a.a.'], 'molecular_weight': [X.molecular_weight()], 'aromaticity': [X.aromaticity()], 'instability_index': [X.instability_index()],
                                     'isoelectric_point': [X.isoelectric_point()], 'flexibility': [sum(X.flexibility()) / len(X.flexibility())], 'protein_sequence': [str(protein)]})

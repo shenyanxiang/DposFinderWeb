@@ -378,11 +378,11 @@ def predict(hyp_params, test_loader):
                     logits, attn = model(strs, toks)
                     attn = attn.cpu().numpy()
                     for i in range(len(strs)):
-                        attn_dict[labels[i]] = (strs[i], attn[i, :, :len(strs[i]), :len(strs[i])].sum(0).mean(0))
+                        attn_dict[labels[i].split(" ")[0]] = (strs[i], attn[i, :, :len(strs[i]), :len(strs[i])].sum(0).mean(0))
                     attn_path = os.path.join(hyp_params.data_path, 'attn/attn_npz/')
                     os.makedirs(attn_path, exist_ok=True)
                     print(f"Saving Depolymerase attention in {os.path.join(attn_path, f'{labels[0]}.npz')}")
-                    np.savez(os.path.join(attn_path, f'{labels[0]}.npz'), **attn_dict)
+                    np.savez(os.path.join(attn_path, f'{labels[0].split(" ")[0]}.npz'), **attn_dict)
                     # draw_attn(os.path.join(hyp_params.data_path, 'attn/'), attn_dict)
                 else:
                     logits = model(strs, toks)

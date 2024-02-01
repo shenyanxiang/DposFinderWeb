@@ -63,7 +63,7 @@ def gbk2protein(args):
 def DepoF(args):
     dir = os.path.join(args.fasta_path, 'outputs')
     for file in os.listdir(dir):
-        filename = file.split('.')[0]
+        filename = os.path.splitext(file)[0]
         if filename.split('_')[-1] == 'screened':
             DposFinder_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/main.py --mode predict --data_path {dir} --test_data {file} {'--no_cuda' if args.no_cuda else ''}"
             try:
@@ -85,40 +85,12 @@ def DepoF(args):
                     f.write(f">{id[i]}#score:{prob[i]:.3f}\n{protein[i]}\n")
 
         result = pd.DataFrame({'contig_id': [i.split('#')[0] for i in id], 'locus_tag': [i.split('#')[1] for i in id], 
-                               'location': [i.split('#')[2] + ' ' + i.split('#')[3] for i in id], 'prediction_score': prob, 'length': [len(i) for i in protein]})
+                               'location': [i.split('#')[2] + ' ' + i.split('#')[3] for i in id], 'prediction_score': prob, 'length': [len(i) for i in protein], 'identity': ['-' for i in protein]})
         result.to_csv(os.path.join(dir, "result.tsv"), sep='\t', index=False)
 
     print("Depolymerase prediction finished")
     return
 
-def Blastp(args):
-    dir = os.path.join(args.fasta_path, 'outputs')
-    for file in os.listdir(dir):
-        filename = file.split('.')[0]
-        if filename.split('_')[-1] == 'Dpos':
-            Blastp_command = f"blastp -query {os.path.join(dir, file)} -db /public/yxshen/Depolymerase/DepolymeraseDB/DepolymeraseDB -outfmt 6 -out {os.path.join(dir, filename)}_Blastp.tsv"
-            try:
-                subprocess.run(Blastp_command, shell=True, check=True)
-            except subprocess.CalledProcessError:
-                print(f"{file} Blastp failed")
-                continue
-            df = pd.read_csv(os.path.join(dir, f"{filename}_Blastp.tsv"), sep='\t', header=None)
-            df = df[df[2] >= 30]
-            df = df[df[3] >= 100]
-            df = df[df[10] <= 1e-5]
-            df = df[df[11] >= 50]
-            id = df[1].values
-            protein = []
-            with open(os.path.join(dir, f"{file}"), 'r') as f:
-                for record in SeqIO.parse(f, 'fasta'):
-                    if record.id in id:
-                        protein.append(record.seq)
-            with open(os.path.join(dir, f"{filename}_Dpos.fasta"), 'a') as f:
-                for i in range(len(id)):
-                    f.write(f">{id[i]}\n{protein[i]}\n")
-
-            os.remove(os.path.join(dir, f"{file}"))
-            os.remove(os.path.join(dir, f"{filename}_Blastp.tsv"))
 
 def downstreamAnalysis(args):
     dir = os.path.join(args.fasta_path, 'outputs')
@@ -130,9 +102,37 @@ def downstreamAnalysis(args):
         os.makedirs(os.path.join(dir, id), exist_ok=True)
         with open(os.path.join(dir, id, f"{id}.fasta"), 'a') as f:
             f.write(f">{id}\n{protein}\n")
+        blastp_command = f"/public/software/ncbi-blast-2.10.0+/bin/blastp -query {os.path.join(dir, id, f'{id}.fasta')} -db ./dpos_blast_db/dpos_blast_db -outfmt 6 -out {os.path.join(dir, id, 'Blastp.tsv')} -num_alignments 5"
+        try:
+            subprocess.run(blastp_command, shell=True, check=True)
+        except subprocess.CalledProcessError:
+            print(f"{id} Blastp failed")
+        blast_result = pd.read_csv(os.path.join(dir, id, "Blastp.tsv"), sep='\t', header=None)
+        blast_result.columns = ['query_id', 'subject_id', 'identity', 'alignment_length', 'mismatches', 'gap_opens', 'q_start', 'q_end', 's_start', 's_end', 'evalue', 'bit_score']
+        blast_result_summary = pd.DataFrame(columns = ['hit_id', 'identity', 'query_coverage', 'evalue', 'bit_score'])
+
+        for i in range(len(blast_result)):
+            hit_id = blast_result['subject_id'][i]
+            identity = blast_result['identity'][i]
+            identity = round(identity, 1)
+            query_coverage = (blast_result['q_end'][i]-blast_result['q_start'][i]+1) / len(protein)
+            query_coverage = round(query_coverage*100, 1)
+            evalue = blast_result['evalue'][i]
+            bit_score = blast_result['bit_score'][i]
+            blast_result_summary.loc[i] = [hit_id, identity, query_coverage, evalue, bit_score]
+        
+        blast_result_summary.to_csv(os.path.join(dir, id, "Blastp_summary.tsv"), sep='\t', index=False)
+
+        protein_id = record.id.split('#')[0]
+        identity = blast_result_summary[blast_result_summary['bit_score'] == blast_result_summary['bit_score'].max()]['identity'].values[0]
+        result = pd.read_csv(os.path.join(dir, "result.tsv"), sep='\t')
+        result.loc[result['contig_id'] == protein_id, 'identity'] = identity
+        result.to_csv(os.path.join(dir, "result.tsv"), sep='\t', index=False)
+
+
         X=ProteinAnalysis(str(protein))
         information = pd.DataFrame({'protein_name': [id], 'length': [str(len(str(protein))) + ' a.a.'], 'molecular_weight': [X.molecular_weight()], 'aromaticity': [X.aromaticity()], 'instability_index': [X.instability_index()],
-                                    'isoelectric_point': [X.isoelectric_point()], 'flexibility': [sum(X.flexibility()) / len(X.flexibility())], 'protein_sequence': [str(protein)], 'coordinate': [record.id.split('#')[1]]})
+                                    'isoelectric_point': [X.isoelectric_point()], 'flexibility': [sum(X.flexibility()) / len(X.flexibility())], 'protein_sequence': [str(protein)], 'coordinate': [record.id.split('#')[2]+' '+record.id.split('#')[3]]})
         information['molecular_weight'] = information['molecular_weight'].round(2)
         information['aromaticity'] = information['aromaticity'].round(3)
         information['instability_index'] = information['instability_index'].round(2)
