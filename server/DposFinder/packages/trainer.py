@@ -180,7 +180,7 @@ def final_train_model(settings, hyp_params, train_loader, test_loader, device):
     os.makedirs('./log/', exist_ok=True)
     log_dir = './log/'
     logging.basicConfig(handlers=[
-        logging.FileHandler(filename=f'./log/train_{hyp_params.fold_num}.log', encoding='utf-8', mode='w+')],
+        logging.FileHandler(filename=f'./log/train.log', encoding='utf-8', mode='w+')],
         format="%(asctime)s %(levelname)s:%(message)s", datefmt="%F %A %T", level=logging.INFO)
     writer = SummaryWriter(log_dir)
 
@@ -291,8 +291,9 @@ def test_case(hyp_params, test_loader):
     criterion = getattr(nn, hyp_params.criterion)()
 
     model.return_embedding = hyp_params.return_embedding
-    model.eval()
+    model.return_subseq = hyp_params.return_subseq
     model.to(device)
+    model.eval()
     if hyp_params.return_embedding:
         embeddings = []
         truths = []
@@ -306,7 +307,7 @@ def test_case(hyp_params, test_loader):
                 truths.append(y)
         embeddings = torch.cat(embeddings).cpu().numpy()
         truths = torch.cat(truths).cpu().numpy()
-        color_dict = {'Non-depolymerase': plt.cm.Set2.colors[7], 'Depolymerase': plt.cm.Set2.colors[1]}
+        color_dict = {'Non-depolymerase': plt.cm.Set2.colors[7], 'Depolymerase': "#FFB871"}
         output_dir = hyp_params.data_path
         # plot_umap(embeddings, truths, color_dict, title="UMAP projection of hidden embedding", output_dir = output_dir, ignore_ylabel=False)
         plot_tsne(embeddings, truths, color_dict, title="T-SNE projection of hidden embedding", output_dir = output_dir, ignore_ylabel=False)
@@ -337,7 +338,7 @@ def test_case(hyp_params, test_loader):
 
         result_df = pd.DataFrame({'prob': results.view(-1).cpu().detach().numpy(),
                                 'pred': preds.view(-1).cpu().detach().numpy()})
-        result_df.to_csv(os.path.join(hyp_params.data_path, f'{hyp_params.test_data}_result.tsv'), index=False, sep='\t')
+        result_df.to_csv(os.path.join(hyp_params.data_path, f'{hyp_params.test_data.split(".")[0]}_result.tsv'), index=False, sep='\t')
 
     return avg_loss
 
@@ -353,20 +354,50 @@ def predict(hyp_params, test_loader):
 
     model.return_attn = hyp_params.return_attn
     model.return_embedding = hyp_params.return_embedding
+    model.return_subseq = hyp_params.return_subseq
     model.eval()
     
     if hyp_params.return_embedding:
         embedding_dict = {}
+        dict_name = hyp_params.test_data.split(".")[0]
         with torch.no_grad():
             for labels, strs, toks in test_loader:
                 toks.to(device)
                 embedding = model(strs, toks)
                 for i in range(len(strs)):
                     embedding_dict[labels[i]] = embedding[i].cpu().numpy()
-                embedding_path = os.path.join(hyp_params.data_path, f'embedding/{hyp_params.test_data}.npz')
+                embedding_path = os.path.join(hyp_params.data_path, f'embedding/{dict_name}.npz')
         os.makedirs(os.path.join(hyp_params.data_path, 'embedding'), exist_ok=True)
-        print(f"Saving Depolymerase embedding in {os.path.join(hyp_params.data_path, f'embedding/{hyp_params.test_data}.npz')}")
+        print(f"Saving Depolymerase embedding in {os.path.join(hyp_params.data_path, f'embedding/{dict_name}.npz')}")
         np.savez(embedding_path, **embedding_dict)
+    elif hyp_params.return_subseq:
+        with torch.no_grad():
+            for labels, strs, toks in test_loader:
+                toks.to(device)
+                index_list = model(strs, toks)
+
+                subseq_path = os.path.join(hyp_params.data_path, 'subseq/')
+                os.makedirs(subseq_path, exist_ok=True)
+                fasta_path = os.path.join(subseq_path, f'{labels[0].split(" ")[0]}_subseq.fasta')
+
+                with open(fasta_path, 'a') as label_file:
+                    for i, label in enumerate(labels):
+                        label_file.write(f'>{label}\n')
+                        if len(strs[i]) < 150:
+                            label_file.write(f'{strs[i]}\n')
+                        else:
+                            label_file.write(f'{strs[i][index_list[i]:index_list[i]+150]}\n')
+                # fasta_path = os.path.join(subseq_path, f'{hyp_params.test_data.split(".")[0]}.tsv')
+                # # with open(fasta_path, 'a') as label_file:
+                # #     for i, label in enumerate(labels):
+                # #         label_file.write(str(index_list[i])+ '\n')
+
+                # with open(fasta_path, 'a') as label_file:
+                #     for arr in index_list:
+                #         for element in arr:
+                #             label_file.write(str(element) + '\n')
+
+            print(f"Saving Depolymerase subseq in {fasta_path}")
     else:
         results = []
         label_list = []

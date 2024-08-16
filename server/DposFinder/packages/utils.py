@@ -40,12 +40,14 @@ def save_load_name(args, name=''):
 
 def save_model(args, model, name=''):
     name = save_load_name(args, name)
+    os.makedirs('./model/', exist_ok=True)
     torch.save(model, f'./model/{name}.pt')
 
 
 def load_model(args, name=''):
     name = save_load_name(args, name)
-    model = torch.load(f'./model/{name}.pt', map_location=torch.device('cuda:0'))
+    device = torch.device('cuda' if args.use_cuda else 'cpu')
+    model = torch.load(f'./model/{name}.pt', map_location=device)
     return model
 
 def draw_attn(output_dir, protein):
@@ -93,10 +95,11 @@ def draw_attn(output_dir, protein):
         os.mkdir(os.path.join(attn_dir, 'img'))
     if not os.path.exists(os.path.join(attn_dir, 'pdf')):
         os.mkdir(os.path.join(attn_dir, 'pdf'))
-    offset = .1
+    offset = .01
     for key, value in attn_dict.items():
         seq = list(value[0])
         attn = value[1]
+        attn = np.log(attn)
         max_attn = max(attn)
         min_attn = min(attn)
 
@@ -152,7 +155,7 @@ def draw_attn(output_dir, protein):
             logo.ax.set_xticklabels(np.array([20, 40, 60, 80, 100]) + 100*i)
             logo.style_spines(visible=False)
             logo.style_spines(spines=['left'], visible=True)
-            logo.ax.axhline(offset, color='gray', linewidth=1, linestyle='--')
+            logo.ax.axhline(0.5, color='gray', linewidth=1, linestyle='--')
         
         plt.tight_layout()
 

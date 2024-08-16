@@ -64,7 +64,7 @@
         <div v-if="jobType">
           <el-row>
             <el-col :span="16" :offset="4">
-              <h1>Depolymerase prediction result</h1>
+              <h2>Depolymerase prediction results</h2>
               <el-text size="large">Job id: {{ job_id }}</el-text>
               <el-divider />
               <p>
@@ -78,8 +78,8 @@
                 :row-config="{isCurrent: true, isHover: true}"
                 :data="tableData">
                 <vxe-column field="contig_id" title="Contig id"></vxe-column>
-                <vxe-column field="prediction_score" title="Prediction score" :title-help="{message: 'Range from [0,1]. Proteins with a score greater than 0.5 are predicted as depolymerases. The higher the score, the higher the reliability.'}"></vxe-column>
-                <vxe-column field="identity" title="Identity (%)" :title-help="{message: 'Blastp identity against curated depolymerases'}"></vxe-column>
+                <vxe-column field="prediction_score" title="Prediction score" :title-help="{message: 'Range from [0,1]. Proteins with the score greater than 0.5 are predicted as depolymerases. The higher the score, the higher the reliability.'}"></vxe-column>
+                <vxe-column field="identity" title="Identities (%)" :title-help="{message: 'Blastp identities against curated depolymerases'}"></vxe-column>
                 <vxe-column field="length" title="Length (a.a.)"></vxe-column>
                 <vxe-column field="locus_tag" title="Locus tag"></vxe-column>
                 <vxe-column field="location" title="Coordinates"></vxe-column>
@@ -162,10 +162,10 @@
                       {{ proteinInfo.protein_sequence }}
                     </el-text>
                   </el-collapse-item>
-                  <el-collapse-item title="Blastp result" name="3">
+                  <el-collapse-item title="Blastp results" name="3">
                     <el-table :data="proteinInfo.blast_result" height="250" style="width: 100%">
                       <el-table-column prop="hit_id" label="Depolymerase id" />
-                      <el-table-column prop="identity" label="Identity (%)" />
+                      <el-table-column prop="identity" label="Identities (%)" />
                       <el-table-column prop="query_coverage" label="Query coverage (%)" />
                       <el-table-column prop="evalue" label="E-value" />
                       <el-table-column prop="bit_score" label="Bit Score" />
@@ -176,7 +176,7 @@
                       </el-table-column>
                     </el-table>
                   </el-collapse-item>
-                  <el-collapse-item title="Sequence attention and secondary structure" name="4">
+                  <el-collapse-item title="Sequence attention and secondary structure" name="4" v-model="proteinInfo.show_attn">
                     <div>
                       <el-scrollbar height="400px"><el-image :src="proteinInfo.attn_url"/></el-scrollbar>
                     </div>
@@ -194,6 +194,13 @@
                         <div class="legend-label">Coli</div>
                       </div>
                     </div>
+                  </el-collapse-item>
+                  <el-collapse-item title="Serotype prediction result" name="5" v-model="proteinInfo.show_serotype">
+                    <el-table :data="proteinInfo.serotype" height="250" style="width: 100%">
+                      <el-table-column type="index" label="Rank" width="100" />
+                      <el-table-column prop="predict_Ktype" label="Predicted specific serotype" />
+                      <el-table-column prop="score" label="Score" />
+                    </el-table>
                   </el-collapse-item>
                   <!-- <el-collapse-item title="Secondary Structure" name="4">
                     <div class="grid-container">
@@ -219,7 +226,7 @@
         <div v-else>
           <el-row>
             <el-col :span="16" :offset="4">
-              <h1>Depolymerase prediction result</h1>
+              <h2>Depolymerase prediction results</h2>
               <el-text size="large">Job id: {{ job_id }}</el-text>
               <el-divider />
               <p>
@@ -234,7 +241,7 @@
                 :data="tableDataP">
                 <vxe-column field="protein_id" title="Protein id"></vxe-column>
                 <vxe-column field="prediction_score" title="Prediction score" :title-help="{message: 'Range from [0,1]. Proteins with a score greater than 0.5 are predicted as depolymerases. The higher the score, the higher the reliability.'}"></vxe-column>
-                <vxe-column field="identity" title="Identity (%)" :title-help="{message: 'Blastp identity against curated depolymerases'}"></vxe-column>
+                <vxe-column field="identity" title="Identities (%)" :title-help="{message: 'Blastp identities against curated depolymerases'}"></vxe-column>
                 <vxe-column field="length" title="Length (a.a.)"></vxe-column>
                 <vxe-column title="Detail">
                   <template #default="{ row }">
@@ -308,10 +315,10 @@
                       {{ proteinInfo.protein_sequence }}
                     </el-text>
                   </el-collapse-item>
-                  <el-collapse-item title="Blastp result" name="3">
+                  <el-collapse-item title="Blastp results" name="3">
                     <el-table :data="proteinInfo.blast_result" height="250" style="width: 100%">
                       <el-table-column prop="hit_id" label="Depolymerase id" />
-                      <el-table-column prop="identity" label="Identity (%)" />
+                      <el-table-column prop="identity" label="Identities (%)" />
                       <el-table-column prop="query_coverage" label="Query coverage (%)" />
                       <el-table-column prop="evalue" label="E-value" />
                       <el-table-column prop="bit_score" label="Bit Score" />
@@ -413,8 +420,11 @@ const proteinInfo = reactive({
   instability_index: '',
   flexibility: '',
   protein_sequence: '',
+  show_attn: false,
   attn_url: '',
   blast_result: [],
+  show_serotype:false,
+  serotype:[],
   // secondary_structure: [{aa: '', ss: '', pos: ''}],
 });
 
@@ -522,6 +532,8 @@ const showDetailP = (row: RowVOP) => {
       proteinInfo.instability_index = res.data.data.rows[0].instability_index;
       proteinInfo.flexibility = res.data.data.rows[0].flexibility;
       proteinInfo.protein_sequence = res.data.data.rows[0].protein_sequence;
+      proteinInfo.show_attn = res.data.data.show_attn;
+      proteinInfo.show_serotype = res.data.data.show_serotype;
       DetailVisibleP.value = true;
     })
     .catch((error) => {
@@ -542,6 +554,15 @@ const showDetailP = (row: RowVOP) => {
     .then((res) => {
       console.log(res.data);
       proteinInfo.blast_result = res.data.data.rows;
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+  const serotype_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/serotype`;
+  axios.get(serotype_path)
+    .then((res) => {
+      console.log(res.data);
+      proteinInfo.serotype = res.data.data.rows;
     })
     .catch((error) => {
       console.error(error);

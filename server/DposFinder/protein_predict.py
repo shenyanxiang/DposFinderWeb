@@ -14,6 +14,8 @@ parser.add_argument('-f', default='', type=str)
 parser.add_argument('--fasta_path', type=str, default='data/',
                     help='path to fasta files')
 parser.add_argument('--no_cuda', action='store_true', help='do not use cuda')
+parser.add_argument('--serotype', action='store_true', help='predict serotype')
+parser.add_argument('--top_k', type=int, default=1, help='top k results to return')
 
 args = parser.parse_args()
 
@@ -108,6 +110,24 @@ def downstreamAnalysis(args):
             print(f"{filename} s4pred failed")
             continue
         draw_attn(protein_dir, protein)
+    if args.serotype:
+        for protein in protein_list:
+            protein_dir = os.path.join(dir, protein)
+            filename = f"{protein}.fasta"
+            subseq_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/main.py --mode predict --data_path {protein_dir} --test_data {filename} {'--no_cuda' if args.no_cuda else ''} --return_subseq"
+            try:
+                subprocess.run(subseq_command, shell=True, check=True)
+            except subprocess.CalledProcessError:
+                print(f"Serotype prediction failed")
+                continue
+            subseq_name = f"{protein}_subseq.fasta"
+            subseq_dir = os.path.join(protein_dir, 'subseq', subseq_name)
+            serotype_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/serotype_predict.py --query_path {subseq_dir} --output {protein_dir} --k {args.top_k}"
+            try:
+                subprocess.run(serotype_command, shell=True, check=True)
+            except subprocess.CalledProcessError:
+                print(f"Serotype prediction failed")
+                continue
 
 if __name__ == '__main__':
     if torch.cuda.is_available():

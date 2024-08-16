@@ -5,24 +5,24 @@ from packages import trainer
 from packages.LoadData import DepolymeraseDataset, DposFinderDataset
 from torch.utils.data import DataLoader
 import os
-from esm import Alphabet
+import esm
 
 
 parser = argparse.ArgumentParser(
     description='Phage Host Interaction Prediction')
 parser.add_argument('-f', default='', type=str)
 
-parser.add_argument('--mode', type=str, default='train',
+parser.add_argument('--mode', type=str, default='final_train',
                     help='mode to run(train, test, final_train or predict)')
 
 parser.add_argument('--model', type=str, default='DposFinder',
                     help='name of the model to use')
 
 parser.add_argument('--data_path', type=str, default='./data/',
-                    help='path to dataset')
+                    help='path to dataset (e.g. ./data/)')
 
 parser.add_argument('--test_data', type=str, default='',
-                    help='name of test set')
+                    help='name of FASTA file containing protein sequences to be predicted. (e.g. test_set.fasta)')
 
 # Dropout
 parser.add_argument('--attn_dropout', type=float, default=0.05,
@@ -34,20 +34,20 @@ parser.add_argument('--embed_dropout', type=float, default=0.4,
 
 parser.add_argument('--n_layers', type=int, default=1,
                     help='number of layers in the network (default: 1)')
-parser.add_argument('--num_heads', type=int, default=4,
-                    help='number of heads for the transformer network (default: 4)')
+parser.add_argument('--num_heads', type=int, default=8,
+                    help='number of heads for the transformer network (default: 8)')
 parser.add_argument('--hid_dim', type=int, default=256,
                     help='number of hidden units in the network (default: 256)')
 parser.add_argument('--attn_mask', action='store_false',
                     help='use attention mask for transformer (default: True)')
 
 # Tuning
-parser.add_argument('--batch_size', type=int, default=8, metavar='N',
-                    help='input batch size for training (default: 8)')
+parser.add_argument('--batch_size', type=int, default=16, metavar='N',
+                    help='input batch size for training (default: 16)')
 parser.add_argument('--clip', type=float, default=0.8,
                     help='gradient clip value (default: 0.8)')
 parser.add_argument('--lr', type=float, default=5e-5,
-                    help='initial learning rate (default: 1e-4)')
+                    help='initial learning rate (default: 5e-5)')
 parser.add_argument('--optim', type=str, default='Adam',
                     help='optimizer to use (default: Adam)')
 parser.add_argument('--num_epochs', type=int, default=15,
@@ -55,7 +55,7 @@ parser.add_argument('--num_epochs', type=int, default=15,
 parser.add_argument('--weight_decay', type=float, default=1e-4,
                     help='weight decay rate (default: 1e-4)')
 parser.add_argument('--when', type=int, default=5,
-                    help='when to decay learning rate (default: 10)')
+                    help='when to decay learning rate (default: 5)')
 
 
 # Logistics
@@ -69,6 +69,8 @@ parser.add_argument('--name', type=str, default='Final',
                     help='name of the trial (default: "Final")')
 parser.add_argument('--return_embedding', action='store_true',
                     help='return hidden embeddings instead of logits (default: False)')
+parser.add_argument('--return_subseq', action='store_true',
+                    help='return high attention region pooling embeddings for serotype prediction (default: False)')
 parser.add_argument('--return_attn', action='store_true',
                     help='return attention weights (default: False)')
 parser.add_argument('--kfold', default=0, type=int,
@@ -79,19 +81,23 @@ args = parser.parse_args()
 
 torch.manual_seed(args.seed)
 
-use_cuda = False
-torch.set_default_tensor_type('torch.FloatTensor')
-if torch.cuda.is_available():
-    if args.no_cuda:
+if args.no_cuda:
+    use_cuda = False
+    torch.set_default_tensor_type('torch.FloatTensor')
+    if torch.cuda.is_available():
         print(
             "WARNING: You have a CUDA device, so you should probably run without --no_cuda")
-        device = torch.device('cpu')
-    else:
-        torch.cuda.manual_seed(args.seed)
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
-        use_cuda = True
+else:
+    torch.cuda.manual_seed(args.seed)
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    use_cuda = True
+    if not torch.cuda.is_available():
+        print('*' * 10)
+        print("CUDA is not available, please check your device or run with --no_cuda")
+        print('*' * 10)
+        exit(0)
 
-alphabet = Alphabet.from_architecture("roberta_large")
+_, alphabet = esm.pretrained.esm2_t33_650M_UR50D()
 
 if args.mode == 'train':
     ####################################################################
@@ -111,8 +117,8 @@ if args.mode == 'train':
         collate_fn=alphabet.get_batch_converter(), generator=torch.Generator(device='cuda' if use_cuda else 'cpu'))
     valid_loader = DataLoader(valid_set, batch_size=args.batch_size,
         collate_fn=alphabet.get_batch_converter(), shuffle=False, generator=torch.Generator(device='cuda' if use_cuda else 'cpu'))
-    # train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=padtoks, generator=torch.Generator(device='cuda:1' if use_cuda else 'cpu'))
-    # valid_loader = DataLoader(valid_set, batch_size=args.batch_size, shuffle=False, collate_fn=padtoks, generator=torch.Generator(device='cuda:1' if use_cuda else 'cpu'))
+    # train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=padtoks, generator=torch.Generator(device='cuda' if use_cuda else 'cpu'))
+    # valid_loader = DataLoader(valid_set, batch_size=args.batch_size, shuffle=False, collate_fn=padtoks, generator=torch.Generator(device='cuda' if use_cuda else 'cpu'))
     test_loader = DataLoader(test_set, batch_size=args.batch_size,
         collate_fn=alphabet.get_batch_converter(), shuffle=False, generator=torch.Generator(device='cuda' if use_cuda else 'cpu'))
 
@@ -223,14 +229,14 @@ elif args.mode == 'final_train':
     hyp_params.criterion = 'BCEWithLogitsLoss'
 
 if __name__ == '__main__':
-    with torch.cuda.device('cuda:0'):
-        if args.mode == 'train':
-            test_loss = trainer.initiate(
-                hyp_params, train_loader, valid_loader, test_loader)
-        elif args.mode == 'test':
-            test_loss = trainer.test_case(hyp_params, test_loader)
-        elif args.mode == 'predict':
-            trainer.predict(hyp_params, test_loader)
-        elif args.mode == 'final_train':
-            test_loss = trainer.final_train(
-                hyp_params, train_loader, test_loader)
+    torch.cuda.set_device(0)
+    if args.mode == 'train':
+        test_loss = trainer.initiate(
+            hyp_params, train_loader, valid_loader, test_loader)
+    elif args.mode == 'test':
+        test_loss = trainer.test_case(hyp_params, test_loader)
+    elif args.mode == 'predict':
+        trainer.predict(hyp_params, test_loader)
+    elif args.mode == 'final_train':
+        test_loss = trainer.final_train(
+            hyp_params, train_loader, test_loader)

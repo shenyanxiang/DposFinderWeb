@@ -3,7 +3,7 @@
     <el-row>
       <el-col :span="16" :offset="4">
         <h1 class = "mt-6">Browse predicted depolymerases by DposFinder</h1>
-        <p>we. If you are interested in any depolymerase, you can view the detailed information of the depolymerase by clicking on the link "Detail".</p>
+        <p>We have predicted depolymerases from all phage genomes in <a href="https://phagescope.deepomics.org/" target="_blank">PhageScope</a> database by DposFinder. If you are interested in any depolymerase, you can view the detailed information of the depolymerase by clicking on the link "Detail".</p>
         <el-button type="info" @click="Browsemain">Browse curated depolymerases</el-button>
         <el-button type="info" disabled>Browse predicted depolymerases by DposFinder</el-button>
         <br><br><br>
@@ -12,7 +12,7 @@
                 <vxe-form :data="formData" @submit="searchEvent" @reset="resetEvent">
                   <vxe-form-item field="name">
                         <template #default>
-                            <vxe-input v-model="formData.name" type="text"></vxe-input>
+                            <vxe-input v-model="formData.name" type="text" placeholder="Please input host"></vxe-input>
                         </template>
                     </vxe-form-item>
                     <vxe-form-item>
@@ -54,23 +54,26 @@ const formData = reactive({
 const gridOptions = reactive<VxeGridProps<RowVO>>({
   showOverflow: true,
   border: 'inner',
-  height: 548,
+  height: 800,
   columnConfig: {
     resizable: true
   },
   printConfig: {
     columns: [
-      { field: 'dpos_accession' },
-      { field: 'phage' },
-      { field: 'experimental' },
-      { field: 'reference' },
+      { field: 'phage_id' },
+      { field: 'host' },
+      { field: 'life_style' },
+      { field: 'locus_tag' },
+      { field: 'coordinates'},
+      { field: 'prediction_score'},
+      { field: 'length'}
     ]
   },
   sortConfig: {
     trigger: 'cell',
     remote: true,
     defaultSort: {
-      field: 'experimental',
+      field: 'prediction_score',
       order: 'desc'
     }
   },
@@ -113,10 +116,10 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
         filters.forEach(({ field, values }) => {
           queryParams[field] = values.join(',')
         })
-        return fetch(`${serveApiUrl}/api/ex_dpos/page/list/${page.pageSize}/${page.currentPage}?${XEUtils.serialize(queryParams)}`).then(response => response.json())
+        return fetch(`${serveApiUrl}/api/pred_dpos/page/list/${page.pageSize}/${page.currentPage}?${XEUtils.serialize(queryParams)}`).then(response => response.json())
       },
       // 被某些特殊功能所触发，例如：导出数据 mode=all 时，会触发该方法并对返回的数据进行导出
-      queryAll: () => fetch(`${serveApiUrl}/api/ex_dpos/all`).then(response => response.json())
+      queryAll: () => fetch(`${serveApiUrl}/api/pred_dpos/all`).then(response => response.json())
     }
   },
   toolbarConfig: {
@@ -128,22 +131,24 @@ const gridOptions = reactive<VxeGridProps<RowVO>>({
     }
   },
   columns: [
-    { type: 'seq', width: 60, fixed: 'left' },
-    { field: 'dpos_accession', type: "html", title: 'Depolymerase accession', minWidth: 160, sortable: true},
-    { field: 'phage', title: 'Phage name', minWidth: 160, sortable: true },
-    { field: 'experimental', title: 'Experiment', sortable: true, minWidth: 160,
+    { field: 'phage_id', title: 'Phage id',  sortable: true},
+    { field: 'host', title: 'Host', sortable: true, minWidth: 160},
+    { field: 'life_style', title: 'Lifestyle', sortable: true, minWidth: 100,
         filters: [
-            { label: 'yes', value: 'yes'},
-            { label: 'no', value: 'no' }
+            { label: 'virulent', value: 'virulent'},
+            { label: 'temperate', value: 'temperate' }
         ],
     },
-    { field: 'reference', type: "html", title: 'Reference', sortable: true, minWidth: 160, 
+    { field: 'locus_tag', title: 'Locus tag'},
+    { field: 'coordinates', title: 'Coordinates', minWidth: 100},
+    { field: 'prediction_score', title: 'Prediction score', sortable: true, minWidth: 100, titlePrefix: { message: 'Range from [0,1]. Proteins with the score greater than 0.5 are predicted as depolymerases. The higher the score, the higher the reliability.' }},
+    { field: 'length', title: 'Length', sortable: true, minWidth: 80,
         formatter: ({ cellValue }) => {
-            return `<a href="https://doi.org/${cellValue}" target="_blank">doi:${cellValue}</a>`;
+            return `${cellValue} a.a.`;
         }
     },
     {
-      field: 'dpos_accession', type: 'html', title: 'Detail', width: 120, fixed: 'right',
+      field: 'dpos_accession', type: 'html', title: 'Detail', width: 80, fixed: 'right',
         formatter: ({ cellValue }) => {
             return `<a href="/#/browse/${cellValue}" target="_blank">Detail</a>`;
         }

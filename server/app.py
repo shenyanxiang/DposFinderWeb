@@ -8,6 +8,7 @@ from threading import Thread
 import time
 import json
 import psycopg2
+import subprocess
 
 DEBUG = True
 
@@ -51,7 +52,7 @@ def get_queue_status():
     filtered_jobs = Jobs.query.filter((Jobs.status == 'Waiting in a queue') | (Jobs.status == 'Running')).all()
     return len(filtered_jobs) <= 1
 
-def run_protein_prediction(app, id, job_dir):
+def run_protein_prediction(app, id, job_dir, pred_serotype, top_k):
     with app.app_context():
         try:
             Jobs.query.get(id).status = 'Waiting in a queue'
@@ -60,20 +61,20 @@ def run_protein_prediction(app, id, job_dir):
                 time.sleep(10)
             Jobs.query.get(id).status = 'Running'
             db.session.commit()
-            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/protein_predict.py --fasta_path {job_dir}"
+            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/protein_predict.py --fasta_path {job_dir} --no_cuda --serotype {'--serotype' if pred_serotype == 'true' else ''} --top_k {top_k}"
 
-            os.system(cmd)
+            subprocess.run(cmd, shell=True, check=True)
 
             Jobs.query.get(id).status = 'Finished'
             db.session.commit()
 
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
             Jobs.query.get(id).status = 'Error'
             db.session.commit()
             with open(os.path.join(job_dir, 'error.log'), 'w') as f:
                 f.write(str(e))
 
-def run_genome_prediction(app, id, job_dir, file_type):
+def run_genome_prediction(app, id, job_dir, file_type, pred_serotype, top_k):
     with app.app_context():
         try:
             Jobs.query.get(id).status = 'Waiting in a queue'
@@ -82,14 +83,14 @@ def run_genome_prediction(app, id, job_dir, file_type):
                 time.sleep(10)
             Jobs.query.get(id).status = 'Running'
             db.session.commit()
-            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/genome_predict.py --fasta_path {job_dir} --file_type {file_type}"
+            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/genome_predict.py --fasta_path {job_dir} --file_type {file_type} --no_cuda --serotype {'--serotype' if pred_serotype == 'true' else ''} --top_k {top_k}"
 
-            os.system(cmd)
+            subprocess.run(cmd, shell=True, check=True)
 
             Jobs.query.get(id).status = 'Finished'
             db.session.commit()
 
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
             Jobs.query.get(id).status = 'Error'
             db.session.commit()
             with open(os.path.join(job_dir, 'error.log'), 'w') as f:
@@ -110,6 +111,8 @@ def download(filename):
 @app.route('/api/analysis/protein', methods=['GET', 'POST'])
 def analysis_protein():
     input_method = request.form.get('inputMethod')
+    pred_serotype = request.form.get('predSerotype')
+    top_k = request.form.get('topK')
     if not request.headers.getlist("X-Forwarded-For"):
         remote_ip = request.remote_addr
     else:
@@ -126,26 +129,29 @@ def analysis_protein():
             f.write(request.files['file'].read())
     elif input_method == 'text':
         with open(sequence, 'w') as f:
-            f.write(request.form['inputProtein'])
+            f.write(request.form['inputprotein'])
 
     # check input file "sequence.fasta"
     if check_protein_fasta_file(sequence):
         num_sequence = len(
             [1 for line in open(sequence, 'r') if line.startswith(">")])
-        job = Jobs(job_id=job_id, ip=remote_ip, task='protein-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.utcnow())
+        job = Jobs(job_id=job_id, ip=remote_ip, task='protein-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.now())
         db.session.add(job)
         db.session.commit()
-        thread = Thread(target=run_protein_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir})
+        thread = Thread(target=run_protein_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'pred_serotype': pred_serotype, 'top_k': top_k})
         thread.start()
         return jsonify(message=f"Job {job.job_id} is successfully submitted", category="success", status=200)
     else:
         os.system(f'rm -r ./jobs/{job_id}')
         return jsonify(message=f"Invalid Input! Only FASTA Format of protein sequence is supported.", category="error", status=404)
+
     
     
 @app.route('/api/analysis/genome', methods=['POST'])
 def analysis_genome():
     input_method = request.form.get('inputMethod')
+    pred_serotype = request.form.get('predSerotype')
+    top_k = request.form.get('topK')
     if not request.headers.getlist("X-Forwarded-For"):
         remote_ip = request.remote_addr
     else:
@@ -158,6 +164,7 @@ def analysis_genome():
 
     if input_method == 'file':
         file_content = request.files['file'].read()
+        check_char = file_content.decode('utf-8')[0]
         if file_content.decode('utf-8')[0] != '>':
             file_type = 'gbk'
             with open(os.path.join(job_dir, 'sequence.gbk'), 'wb') as f:
@@ -169,25 +176,26 @@ def analysis_genome():
                 f.write(file_content)
     elif input_method == 'text':
         with open(os.path.join(job_dir, 'sequence.fasta'), 'w') as f:
-            file_content = request.form['inputGenome']
+            file_content = request.form['inputgenome']
             f.write(file_content)
             file_type = 'fasta'
+            check_char = file_content[0]
 
     sequence = os.path.join(job_dir, 'sequence.fasta')
             
     # check input file "sequence.fasta"
-    if (file_content.decode('utf-8')[0] == '>' and check_genome_fasta_file(sequence)) or (file_content.decode('utf-8')[0] != '>' and check_protein_fasta_file(sequence)):
+    if (check_char == '>' and check_genome_fasta_file(sequence)) or (check_char != '>' and check_protein_fasta_file(sequence)):
         num_sequence = len(
             [1 for line in open(sequence, 'r') if line.startswith(">")])
-        job = Jobs(job_id=job_id, ip=remote_ip, task='genome-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.utcnow())
+        job = Jobs(job_id=job_id, ip=remote_ip, task='genome-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.now())
         db.session.add(job)
         db.session.commit()
-        thread = Thread(target=run_genome_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'file_type': file_type})
+        thread = Thread(target=run_genome_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'file_type': file_type, 'pred_serotype': pred_serotype, 'top_k': top_k})
         thread.start()
         return jsonify(message=f"Job {job.job_id} is successfully submitted", category="success", status=200)
     else:
-        # os.system(f'rm -r ./jobs/{job_id}')
-        return jsonify(message=f"Invalid Input! Only FASTA or GenBank Format of genome sequence is supported. {file_content.decode('utf-8')[0]}", category="error", status=404)
+        os.system(f'rm -r ./jobs/{job_id}')
+        return jsonify(message=f"Invalid Input! Only FASTA or GenBank Format of genome sequence is supported.", category="error", status=404)
     
 @app.route('/api/result/<job_id>', methods=['GET'])
 def get_results(job_id):
@@ -195,7 +203,7 @@ def get_results(job_id):
     
     if job is not None:
         results = job.serialize
-        current_time=datetime.utcnow()
+        current_time=datetime.now()
         results['current_time'] = dump_datetime(current_time)
         job_dir = os.path.join('./jobs', job_id)
         if job.status == 'Error':
@@ -232,7 +240,10 @@ def get_protein_information(job_id, protein_id):
         information_file = os.path.join(protein_dir, 'information.tsv')
         df = pd.read_csv(information_file, sep='\t')
         results['rows'] = json.loads(df.to_json(orient='records'))
-        results['attn_url'] = f'/public/yxshen/DposFinderWeb/server/jobs/{job_id}/outputs/{protein_id}/attn/img/{protein_id}_attn.png'
+        attn_file = os.path.join(protein_dir, 'attn', 'img', f'{protein_id}_attn.png')
+        results['show_attn'] = os.path.exists(attn_file)
+        serotype_file = os.path.join(protein_dir, 'predicted_serotype.csv')
+        results['show_serotype'] = os.path.exists(serotype_file)
         return jsonify(message=f"Get {protein_id} information",
                         category="success",
                         data=results,
@@ -327,6 +338,55 @@ def getAllDpos():
 
     return jsonify(filtered_data)
 
+@app.route('/api/pred_dpos/page/list/<int:pageSize>/<int:currentPage>', methods=['GET'])
+def getPredDposList(pageSize, currentPage):
+    name = request.args.get('name')
+    sort = request.args.get('sort')
+    order = request.args.get('order')
+    lifestyle = request.args.get('life_style')
+
+    conn = connect_to_db()
+    cursor = conn.cursor()
+
+    query = f"""SELECT * FROM "Dpos_info".predicted_dpos WHERE LOWER(host) LIKE LOWER('%{name}%')"""
+    if lifestyle:
+        query += f""" AND experimental = '{lifestyle}'"""
+    if sort and order:
+        query += f""" ORDER BY {sort} {order}"""
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    keys = ['id', 'phage_id', 'host', 'life_style', 'locus_tag', 'coordinates', 'prediction_score', 'length']
+    filtered_data = [{key: row[i] for i, key in enumerate(keys)} for row in rows]
+
+    start_index = (currentPage - 1) * pageSize
+    end_index = start_index + pageSize
+    paged_data = filtered_data[start_index:end_index]
+
+    conn = connect_to_db()
+    cursor = conn.cursor()
+
+    return jsonify({
+        'result': paged_data,
+        'page': {
+            'total': len(filtered_data)
+        }
+    })
+
+@app.route('/api/pred_dpos/all', methods=['GET'])
+def getAllPredDpos():
+    # 返回所有的 depolymerase 数据
+    conn = connect_to_db()
+    cursor = conn.cursor()
+
+    query = f"""SELECT * FROM "Dpos_info".predicted_dpos"""
+
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    keys = ['id', 'phage_id', 'host', 'life_style', 'locus_tag', 'coordinates', 'prediction_score', 'length']
+    filtered_data = [{key: row[i] for i, key in enumerate(keys)} for row in rows]
+
+    return jsonify(filtered_data)
+
 @app.route('/api/protein/<protein_id>', methods=['GET'])
 def get_protein_info(protein_id):
     protein_dir = os.path.join('./dpos_db/valid_dpos', protein_id)
@@ -344,6 +404,15 @@ def get_attn(protein_id):
     protein_dir = os.path.join('./dpos_db/valid_dpos', protein_id)
     attn_file = os.path.join(protein_dir, 'attn', 'img', f'{protein_id}.png')
     return send_file(attn_file, mimetype='image/jpeg')
+@app.route('/api/protein/<protein_id>/disorder', methods=['GET'])
+def get_disorder(protein_id):
+    disorder_file_path = os.path.join('./dpos_db/valid_dpos', protein_id, 'disorders.txt')
+    results = read_disorder(disorder_file_path)
+
+    return jsonify(message="",
+                   category="success",
+                   data=json.loads(results),
+                   status=200)
 
 if __name__ == '__main__':
     app.config['JSON_AS_ASCII'] = False

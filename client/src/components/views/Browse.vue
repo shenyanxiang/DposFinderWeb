@@ -2,12 +2,13 @@
     <div class="browse">
       <h1 class="ml-10">Detailed information of depolymerase {{ protein_id }}</h1>
       <el-container>
-        <el-aside width="200px">
+        <el-aside width="250px">
           <el-menu default-active="" class="sidebar">
             <el-menu-item index="1" data-block="block1" @click="handleMenuItemClick(1)">General information</el-menu-item>
             <el-menu-item index="2" data-block="block2" @click="handleMenuItemClick(2)">Protein sequence</el-menu-item>
             <el-menu-item index="3" data-block="block3" @click="handleMenuItemClick(3)">Sequence attention</el-menu-item>
-            <el-menu-item index="4" data-block="block4" @click="handleMenuItemClick(4)">Domain prediction</el-menu-item>
+            <el-menu-item index="4" data-block="block4" @click="handleMenuItemClick(4)">Disorder area prediction</el-menu-item>
+            <el-menu-item index="5" data-block="block5" @click="handleMenuItemClick(5)">Domain prediction</el-menu-item>
           </el-menu>
         </el-aside>
         <el-main>
@@ -106,9 +107,14 @@
             </div>
           </el-card>
           <el-card id="block4" class="mt-10">
+            <div slot="header" class="header">Disorder area prediction</div>
+            <p>Protein disorder area predicted by <a href="https://iupred3.elte.hu/" target="_blank">IUPred3</a>. (Values above 0.5 indicate the disorder area)</p>
+            <div id="disorder" style="height: 400px; width: 100%;"></div>
+          </el-card>
+          <el-card id="block5" class="mt-10">
             <div slot="header" class="header">Domain prediction</div>
-            <p>predicted by InterproScan</p>
-            <br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+            <p>Protein domain predicted by <a href="https://www.ebi.ac.uk/interpro/" target="_blank">InterproScan</a>.</p>
+            <br><br><br><br><br><br><br><br><br><br><br><br>
           </el-card>
         </el-main>
       </el-container>
@@ -119,6 +125,7 @@
 import { defineProps, reactive } from 'vue';
 import axios from 'axios';
 import { onMounted } from 'vue';
+import * as echarts from 'echarts';
 
 const props = defineProps({
 protein_id: String
@@ -133,7 +140,7 @@ const proteinInfo = reactive({
     instability_index: '',
     flexibility: '',
     attn_url: '',
-    protein_sequence: ''
+    protein_sequence: '',
 });
 
 const handleMenuItemClick = (index: number) => {
@@ -164,6 +171,98 @@ const getProteinInfo = async () => {
       console.log(res.data);
       const blob = new Blob([res.data], { type: 'image/png' });
       proteinInfo.attn_url = window.URL.createObjectURL(blob);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+    const disorder_path = `http://127.0.0.1:5001/api/protein/${props.protein_id}/disorder`;
+    axios.get(disorder_path)
+    .then((res) => {
+      console.log(res.data.data);
+      const disorder = res.data.data;
+      type EChartsOption = echarts.EChartsOption;
+
+      var chartDom = document.getElementById('disorder')!;
+      var myChart = echarts.init(chartDom);
+      var option: EChartsOption;
+
+      // let base = +new Date(1988, 9, 3);
+      // let oneDay = 24 * 3600 * 1000;
+
+      // let data = [[base, Math.random() * 300]];
+
+      // for (let i = 1; i < 20000; i++) {
+      //   let now = new Date((base += oneDay));
+      //   data.push([+now, Math.round((Math.random() - 0.5) * 20 + data[i - 1][1])]);
+      // }
+
+      let data = [];
+      for (let i = 0; i < disorder.length; i++) {
+        data.push([disorder[i].position, disorder[i].score]);
+      }
+
+      option = {
+        tooltip: {
+          trigger: 'axis',
+          position: function (pt) {
+            return [pt[0], '10%'];
+          }
+        },
+        toolbox: {
+          feature: {
+            dataZoom: {
+              yAxisIndex: 'none'
+            },
+            restore: {},
+            saveAsImage: {}
+          }
+        },
+        xAxis: {
+          type: 'category',
+          min: 0,
+          max: data.length
+        },
+        yAxis: {
+          name: 'Disorder score',
+          type: 'value',
+          boundaryGap: [0, '100%'],
+          min: 0,
+          max: 1
+        },
+        dataZoom: [
+          {
+            type: 'inside',
+            start: 0,
+            end: 100
+          },
+          {
+            start: 0,
+            end: 100
+          }
+        ],
+        series: [
+          {
+            type: 'line',
+            smooth: false,
+            symbol: 'none',
+            data: data,
+            markLine: {
+              data: [
+                {
+                  yAxis: 0.5, // 水平线的 y 值
+                  label: {
+                    show: true,
+                    position: 'end',
+                    formatter: '0.5' // 水平线的标签内容
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      };
+
+      option && myChart.setOption(option);
     })
     .catch((error) => {
       console.error(error);

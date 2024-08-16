@@ -9,3 +9,7 @@ client/node_modules
 node_modules
 server/dpos_db
 server/dpos_blast_db
+server/accession_change.txt
+server/published_dpos.fasta
+server/dpos_genome_accessions.txt
+server/dpos_database.txt

@@ -62,3 +62,9 @@ def read_secondary_structure(file):
     
     results = [{'pos': i+1, 'aa': aa, 'ss': ss} for i, (aa, ss) in enumerate(zip(amino_acids, secondary_structure))]
     return results
+
+def read_disorder(file):
+    df = pd.read_table(file, comment='#', header=None, nrows=1020)
+    df.columns = ['position', 'amino_acid', 'score']
+    results = df.to_json(orient="records")
+    return results

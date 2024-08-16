@@ -17,6 +17,8 @@ parser.add_argument('--fasta_path', type=str, default='data/',
                     help='path to fasta files')
 parser.add_argument('--file_type', type=str, default='fasta', help='file type of input files')
 parser.add_argument('--no_cuda', action='store_true', help='do not use cuda')
+parser.add_argument('--serotype', action='store_true', help='predict serotype')
+parser.add_argument('--top_k', type=int, default=1, help='top k results to return')
 
 args = parser.parse_args()
 
@@ -123,10 +125,9 @@ def downstreamAnalysis(args):
         
         blast_result_summary.to_csv(os.path.join(dir, id, "Blastp_summary.tsv"), sep='\t', index=False)
 
-        protein_id = record.id.split('#')[0]
         identity = blast_result_summary[blast_result_summary['bit_score'] == blast_result_summary['bit_score'].max()]['identity'].values[0]
         result = pd.read_csv(os.path.join(dir, "result.tsv"), sep='\t')
-        result.loc[result['contig_id'] == protein_id, 'identity'] = identity
+        result.loc[(result['contig_id']+'_'+result['locus_tag']) == id, 'identity'] = identity
         result.to_csv(os.path.join(dir, "result.tsv"), sep='\t', index=False)
 
 
@@ -155,6 +156,24 @@ def downstreamAnalysis(args):
             print(f"{filename} s4pred failed")
             continue
         draw_attn(protein_dir, protein)
+    if args.serotype:
+        for protein in protein_list:
+            protein_dir = os.path.join(dir, protein)
+            filename = f"{protein}.fasta"
+            subseq_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/main.py --mode predict --data_path {protein_dir} --test_data {filename} {'--no_cuda' if args.no_cuda else ''} --return_subseq"
+            try:
+                subprocess.run(subseq_command, shell=True, check=True)
+            except subprocess.CalledProcessError:
+                print(f"Serotype prediction failed")
+                continue
+            subseq_name = f"{protein}_subseq.fasta"
+            subseq_dir = os.path.join(protein_dir, 'subseq', subseq_name)
+            serotype_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/serotype_predict.py --query_path {subseq_dir} --output {protein_dir} --k {args.top_k}"
+            try:
+                subprocess.run(serotype_command, shell=True, check=True)
+            except subprocess.CalledProcessError:
+                print(f"Serotype prediction failed")
+                continue
         
 
 

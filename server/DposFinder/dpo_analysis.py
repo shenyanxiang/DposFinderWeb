@@ -1,11 +1,8 @@
-import argparse
 import os
 from Bio import SeqIO
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
 import subprocess
-import torch
 import pandas as pd
-import time
 from packages.utils import draw_attn
 
 base_dir = './dpos_db/valid_dpos'
@@ -43,4 +40,10 @@ for accession in os.listdir(base_dir):
             print(f"{accession} s4pred failed")
         
         draw_attn(os.path.join(base_dir, accession), accession)
+
+        iupred_command = f"python ./softwares/iupred3/iupred3.py {file} long > {os.path.join(base_dir, accession, 'disorders.txt')}"
+        try:
+            subprocess.run(iupred_command, shell=True, check=True)
+        except subprocess.CalledProcessError:
+            print(f"{accession} iupred3 failed")
 
