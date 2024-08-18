@@ -19,6 +19,7 @@ parser.add_argument('--file_type', type=str, default='fasta', help='file type of
 parser.add_argument('--no_cuda', action='store_true', help='do not use cuda')
 parser.add_argument('--serotype', action='store_true', help='predict serotype')
 parser.add_argument('--top_k', type=int, default=1, help='top k results to return')
+parser.add_argument('--attn', action='store_true', help='get attention')
 
 args = parser.parse_args()
 
@@ -140,22 +141,23 @@ def downstreamAnalysis(args):
         information['isoelectric_point'] = information['isoelectric_point'].round(2)
         information['flexibility'] = information['flexibility'].round(3)
         information.to_csv(os.path.join(dir, id, "information.tsv"), sep='\t', index=False)
-    for protein in protein_list:
-        protein_dir = os.path.join(dir, protein)
-        filename = f"{protein}.fasta"
-        DposFinder_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/main.py --mode predict --data_path {protein_dir} --test_data {filename} {'--no_cuda' if args.no_cuda else ''} --return_attn"
-        try:
-            subprocess.run(DposFinder_command, shell=True, check=True)
-        except subprocess.CalledProcessError:
-            print(f"{filename} get attention failed")
-            continue
-        s4pred_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python ./softwares/s4pred/run_model.py --outfmt fas {os.path.join(protein_dir, filename)} > {os.path.join(protein_dir, protein +'_ss.fasta')}"
-        try:
-            subprocess.run(s4pred_command, shell=True, check=True)
-        except subprocess.CalledProcessError:
-            print(f"{filename} s4pred failed")
-            continue
-        draw_attn(protein_dir, protein)
+    if args.attn:
+        for protein in protein_list:
+            protein_dir = os.path.join(dir, protein)
+            filename = f"{protein}.fasta"
+            DposFinder_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/main.py --mode predict --data_path {protein_dir} --test_data {filename} {'--no_cuda' if args.no_cuda else ''} --return_attn"
+            try:
+                subprocess.run(DposFinder_command, shell=True, check=True)
+            except subprocess.CalledProcessError:
+                print(f"{filename} get attention failed")
+                continue
+            s4pred_command = f"/public/yxshen/.conda/envs/DposFinder/bin/python ./softwares/s4pred/run_model.py --outfmt fas {os.path.join(protein_dir, filename)} > {os.path.join(protein_dir, protein +'_ss.fasta')}"
+            try:
+                subprocess.run(s4pred_command, shell=True, check=True)
+            except subprocess.CalledProcessError:
+                print(f"{filename} s4pred failed")
+                continue
+            draw_attn(protein_dir, protein)
     if args.serotype:
         for protein in protein_list:
             protein_dir = os.path.join(dir, protein)

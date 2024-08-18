@@ -11,5 +11,8 @@ server/dpos_db
 server/dpos_blast_db
 server/accession_change.txt
 server/published_dpos.fasta
-server/dpos_genome_accessions.txt
-server/dpos_database.txt
+server/published_dpos_genome.tsv
+server/plot_context.py
+server/plot_context.R
+client/src/assets/prediction_overview.png
+client/src/assets/database_overview.png

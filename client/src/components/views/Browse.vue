@@ -8,7 +8,7 @@
             <el-menu-item index="2" data-block="block2" @click="handleMenuItemClick(2)">Protein sequence</el-menu-item>
             <el-menu-item index="3" data-block="block3" @click="handleMenuItemClick(3)">Sequence attention</el-menu-item>
             <el-menu-item index="4" data-block="block4" @click="handleMenuItemClick(4)">Disorder area prediction</el-menu-item>
-            <el-menu-item index="5" data-block="block5" @click="handleMenuItemClick(5)">Domain prediction</el-menu-item>
+            <el-menu-item index="5" data-block="block5" @click="handleMenuItemClick(5)">Genomic context</el-menu-item>
           </el-menu>
         </el-aside>
         <el-main>
@@ -112,9 +112,18 @@
             <div id="disorder" style="height: 400px; width: 100%;"></div>
           </el-card>
           <el-card id="block5" class="mt-10">
-            <div slot="header" class="header">Domain prediction</div>
-            <p>Protein domain predicted by <a href="https://www.ebi.ac.uk/interpro/" target="_blank">InterproScan</a>.</p>
-            <br><br><br><br><br><br><br><br><br><br><br><br>
+            <div slot="header" class="header">Genomic context</div>
+            <p>Display the upstream and downstream genes of the depolymerase by <a href="https://github.com/wilkox/gggenes" target="_blank">gggenes</a>.</p>
+            <div>
+              <el-image :src="proteinInfo.context_url"/>
+            </div>
+            <el-table :data="proteinInfo.context_table" height="300" style="width: 100%">
+              <el-table-column prop="locus_tag" label="Locus tag" />
+              <el-table-column prop="gene" label="Gene symbol" />
+              <el-table-column prop="coordinates" label="Coordinates" />
+              <el-table-column prop="protein_id" label="Protein id" :formatter="accession_formatter"/>
+              <el-table-column prop="annotation" label="NCBI annotation" />
+            </el-table>
           </el-card>
         </el-main>
       </el-container>
@@ -122,7 +131,7 @@
   </template>
   
 <script setup lang="ts">
-import { defineProps, reactive } from 'vue';
+import { defineProps, reactive, h } from 'vue';
 import axios from 'axios';
 import { onMounted } from 'vue';
 import * as echarts from 'echarts';
@@ -141,6 +150,8 @@ const proteinInfo = reactive({
     flexibility: '',
     attn_url: '',
     protein_sequence: '',
+    context_url: '',
+    context_table: [],
 });
 
 const handleMenuItemClick = (index: number) => {
@@ -185,16 +196,6 @@ const getProteinInfo = async () => {
       var chartDom = document.getElementById('disorder')!;
       var myChart = echarts.init(chartDom);
       var option: EChartsOption;
-
-      // let base = +new Date(1988, 9, 3);
-      // let oneDay = 24 * 3600 * 1000;
-
-      // let data = [[base, Math.random() * 300]];
-
-      // for (let i = 1; i < 20000; i++) {
-      //   let now = new Date((base += oneDay));
-      //   data.push([+now, Math.round((Math.random() - 0.5) * 20 + data[i - 1][1])]);
-      // }
 
       let data = [];
       for (let i = 0; i < disorder.length; i++) {
@@ -249,11 +250,11 @@ const getProteinInfo = async () => {
             markLine: {
               data: [
                 {
-                  yAxis: 0.5, // 水平线的 y 值
+                  yAxis: 0.5, 
                   label: {
                     show: true,
                     position: 'end',
-                    formatter: '0.5' // 水平线的标签内容
+                    formatter: '0.5' 
                   }
                 }
               ]
@@ -263,6 +264,22 @@ const getProteinInfo = async () => {
       };
 
       option && myChart.setOption(option);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+    const context_path = `http://127.0.0.1:5001/api/protein/${props.protein_id}/context`;
+    axios.get(context_path, { responseType: 'arraybuffer'})
+    .then((res) => {
+      console.log(res.data);
+      const blob = new Blob([res.data], { type: 'image/png' });
+      proteinInfo.context_url = window.URL.createObjectURL(blob);
+    })
+    const context_table_path = `http://127.0.0.1:5001/api/protein/${props.protein_id}/context_table`;
+    axios.get(context_table_path)
+    .then((res) => {
+      console.log(res.data);
+      proteinInfo.context_table = res.data.data;
     })
     .catch((error) => {
       console.error(error);
@@ -278,6 +295,10 @@ const downloadSequence = () => {
   document.body.appendChild(element);
   element.click();
 };
+
+function accession_formatter(row: any, column: any, cellValue: any, index: number) {
+  return h('a', { href: `https://www.ncbi.nlm.nih.gov/protein/${cellValue}/`, target: '_blank' }, cellValue);
+}
 
 onMounted(async () => {
     await getProteinInfo();

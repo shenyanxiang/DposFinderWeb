@@ -176,48 +176,34 @@
                       </el-table-column>
                     </el-table>
                   </el-collapse-item>
-                  <el-collapse-item title="Sequence attention and secondary structure" name="4" v-model="proteinInfo.show_attn">
+                  <el-collapse-item title="Sequence attention and secondary structure" name="4" :disabled="!proteinInfo.show_attn">
                     <div>
-                      <el-scrollbar height="400px"><el-image :src="proteinInfo.attn_url"/></el-scrollbar>
-                    </div>
-                    <div class="legend">
-                      <div class="legend-item">
-                        <div class="legend-color" style="background: #FC8D62;"></div>
-                        <div class="legend-label">Helix</div>
+                      <div>
+                        <el-scrollbar height="400px"><el-image :src="proteinInfo.attn_url"/></el-scrollbar>
                       </div>
-                      <div class="legend-item">
-                        <div class="legend-color" style="background: #66C2A5;"></div>
-                        <div class="legend-label">Strand</div>
-                      </div>
-                      <div class="legend-item">
-                        <div class="legend-color" style="background: #c8c9cc;"></div>
-                        <div class="legend-label">Coli</div>
+                      <div class="legend">
+                        <div class="legend-item">
+                          <div class="legend-color" style="background: #FC8D62;"></div>
+                          <div class="legend-label">Helix</div>
+                        </div>
+                        <div class="legend-item">
+                          <div class="legend-color" style="background: #66C2A5;"></div>
+                          <div class="legend-label">Strand</div>
+                        </div>
+                        <div class="legend-item">
+                          <div class="legend-color" style="background: #c8c9cc;"></div>
+                          <div class="legend-label">Coli</div>
+                        </div>
                       </div>
                     </div>
                   </el-collapse-item>
-                  <el-collapse-item title="Serotype prediction result" name="5" v-model="proteinInfo.show_serotype">
+                  <el-collapse-item title="Serotype prediction result" name="5" :disabled="!proteinInfo.show_serotype">
                     <el-table :data="proteinInfo.serotype" height="250" style="width: 100%">
                       <el-table-column type="index" label="Rank" width="100" />
                       <el-table-column prop="predict_Ktype" label="Predicted specific serotype" />
                       <el-table-column prop="score" label="Score" />
                     </el-table>
                   </el-collapse-item>
-                  <!-- <el-collapse-item title="Secondary Structure" name="4">
-                    <div class="grid-container">
-                      <div class="grid-item" v-for="index in proteinInfo.secondary_structure" :key="index.pos" :style="getGridItemStyle(index.ss)">
-                        <el-tooltip
-                          effect="dark"
-                          :content=index.pos.toString()
-                          placement="top"
-                        >
-                          {{index.aa}}
-                        </el-tooltip>
-                      </div>
-                    </div>
-                    <br>
-                    
-                    </div>
-                  </el-collapse-item> -->
                 </el-collapse>
               </el-dialog>
             </el-col>
@@ -329,7 +315,7 @@
                       </el-table-column>
                     </el-table>
                   </el-collapse-item>
-                  <el-collapse-item title="Sequence attention and secondary structure" name="4">
+                  <el-collapse-item title="Sequence attention and secondary structure" name="4" :disabled="!proteinInfo.show_attn">
                     <div>
                       <el-scrollbar height="400px"><el-image :src="proteinInfo.attn_url"/></el-scrollbar>
                     </div>
@@ -347,6 +333,13 @@
                         <div class="legend-label">Coli</div>
                       </div>
                     </div>
+                  </el-collapse-item>
+                  <el-collapse-item title="Serotype prediction result" name="5" :disabled="!proteinInfo.show_serotype">
+                    <el-table :data="proteinInfo.serotype" height="250" style="width: 100%">
+                      <el-table-column type="index" label="Rank" width="100" />
+                      <el-table-column prop="predict_Ktype" label="Predicted specific serotype" />
+                      <el-table-column prop="score" label="Score" />
+                    </el-table>
                   </el-collapse-item>
                 </el-collapse>
               </el-dialog>
@@ -425,7 +418,6 @@ const proteinInfo = reactive({
   blast_result: [],
   show_serotype:false,
   serotype:[],
-  // secondary_structure: [{aa: '', ss: '', pos: ''}],
 });
 
 const popAlert = (message: string) => {
@@ -534,7 +526,62 @@ const showDetailP = (row: RowVOP) => {
       proteinInfo.protein_sequence = res.data.data.rows[0].protein_sequence;
       proteinInfo.show_attn = res.data.data.show_attn;
       proteinInfo.show_serotype = res.data.data.show_serotype;
-      DetailVisibleP.value = true;
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+  const attn_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/attn`;
+  if (proteinInfo.show_attn) {
+    axios.get(attn_path, { responseType: 'arraybuffer'})
+      .then((res) => {
+        console.log(res.data);
+        const blob = new Blob([res.data], { type: 'image/png' });
+        proteinInfo.attn_url = window.URL.createObjectURL(blob);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  }
+  const blast_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/blast`;
+  axios.get(blast_path)
+    .then((res) => {
+      console.log(res.data);
+      proteinInfo.blast_result = res.data.data.rows;
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+  const serotype_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/serotype`;
+  if (proteinInfo.show_serotype) {
+    axios.get(serotype_path)
+      .then((res) => {
+        console.log(res.data);
+        proteinInfo.serotype = res.data.data.rows;
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  }
+  DetailVisibleP.value = true;
+};
+
+const showDetail = (row: RowVO) => {
+  protein_id.value = `${row.contig_id}_${row.locus_tag}`
+  const path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}`;
+  axios.get(path)
+    .then((res) => {
+      console.log(res.data);
+      proteinInfo.protein_length = res.data.data.rows[0].length;
+      proteinInfo.coordinate = res.data.data.rows[0].coordinate;
+      proteinInfo.molecular_weight = res.data.data.rows[0].molecular_weight;
+      proteinInfo.isoelectric_point = res.data.data.rows[0].isoelectric_point;
+      proteinInfo.aromaticity = res.data.data.rows[0].aromaticity;
+      proteinInfo.instability_index = res.data.data.rows[0].instability_index;
+      proteinInfo.flexibility = res.data.data.rows[0].flexibility;
+      proteinInfo.protein_sequence = res.data.data.rows[0].protein_sequence;
+      proteinInfo.show_attn = res.data.data.show_attn;
+      proteinInfo.show_serotype = res.data.data.show_serotype;
+      DetailVisible.value = true;
     })
     .catch((error) => {
       console.error(error);
@@ -563,54 +610,6 @@ const showDetailP = (row: RowVOP) => {
     .then((res) => {
       console.log(res.data);
       proteinInfo.serotype = res.data.data.rows;
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-    // const ss_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/ss`;
-    // axios.get(ss_path)
-    //   .then(res => {
-    //     proteinInfo.secondary_structure = res.data.data;
-    //   })
-    //   .catch(error => {
-    //     console.error(error);
-    //   });
-};
-
-const showDetail = (row: RowVO) => {
-  protein_id.value = `${row.contig_id}_${row.locus_tag}`
-  const path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}`;
-  axios.get(path)
-    .then((res) => {
-      console.log(res.data);
-      proteinInfo.protein_length = res.data.data.rows[0].length;
-      proteinInfo.coordinate = res.data.data.rows[0].coordinate;
-      proteinInfo.molecular_weight = res.data.data.rows[0].molecular_weight;
-      proteinInfo.isoelectric_point = res.data.data.rows[0].isoelectric_point;
-      proteinInfo.aromaticity = res.data.data.rows[0].aromaticity;
-      proteinInfo.instability_index = res.data.data.rows[0].instability_index;
-      proteinInfo.flexibility = res.data.data.rows[0].flexibility;
-      proteinInfo.protein_sequence = res.data.data.rows[0].protein_sequence;
-      DetailVisible.value = true;
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-  const attn_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/attn`;
-  axios.get(attn_path, { responseType: 'arraybuffer'})
-    .then((res) => {
-      console.log(res.data);
-      const blob = new Blob([res.data], { type: 'image/png' });
-      proteinInfo.attn_url = window.URL.createObjectURL(blob);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-  const blast_path = `http://127.0.0.1:5001/api/result/${props.job_id}/${protein_id.value}/blast`;
-  axios.get(blast_path)
-    .then((res) => {
-      console.log(res.data);
-      proteinInfo.blast_result = res.data.data.rows;
     })
     .catch((error) => {
       console.error(error);

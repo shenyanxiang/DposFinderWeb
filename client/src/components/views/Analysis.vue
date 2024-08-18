@@ -41,7 +41,10 @@
                         </el-upload>
                     </el-form-item>
                     <el-form-item>
-                        <el-row> <el-text>Predict specific serotype</el-text>&nbsp;&nbsp;&nbsp;&nbsp;<el-switch v-model="inputForm.predSerotype" /> </el-row>
+                        <el-row> <el-text>Plot sequence attention</el-text>&nbsp;&nbsp;&nbsp;&nbsp;<el-switch v-model="inputForm.plotAttn" /> </el-row>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-row> <el-text>Predict capsular serotype</el-text>&nbsp;&nbsp;&nbsp;&nbsp;<el-switch v-model="inputForm.predSerotype" /> </el-row>
                     </el-form-item>
                     <el-form-item v-if="inputForm.predSerotype" >
                       <el-col :span="11">
@@ -95,6 +98,7 @@ const inputForm = reactive<any>({
   file: {},
   job_id: '',
   predSerotype: false,
+  plotAttn: false,
   topK: 1,
 });
 
@@ -173,6 +177,7 @@ const onSubmit = () => {
   const postUrl = `http://127.0.0.1:5001/api/analysis/${inputType.value}`
   formData.append('inputMethod', inputMethod.value);
   formData.append('job_id', inputForm.job_id);
+  formData.append('plotAttn', inputForm.plotAttn);
   formData.append('predSerotype', inputForm.predSerotype);
   formData.append('topK', inputForm.topK);
   if (inputMethod.value === 'file') {

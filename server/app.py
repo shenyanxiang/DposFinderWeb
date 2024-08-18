@@ -52,7 +52,7 @@ def get_queue_status():
     filtered_jobs = Jobs.query.filter((Jobs.status == 'Waiting in a queue') | (Jobs.status == 'Running')).all()
     return len(filtered_jobs) <= 1
 
-def run_protein_prediction(app, id, job_dir, pred_serotype, top_k):
+def run_protein_prediction(app, id, job_dir, pred_serotype, top_k, plot_attn):
     with app.app_context():
         try:
             Jobs.query.get(id).status = 'Waiting in a queue'
@@ -61,7 +61,7 @@ def run_protein_prediction(app, id, job_dir, pred_serotype, top_k):
                 time.sleep(10)
             Jobs.query.get(id).status = 'Running'
             db.session.commit()
-            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/protein_predict.py --fasta_path {job_dir} --no_cuda --serotype {'--serotype' if pred_serotype == 'true' else ''} --top_k {top_k}"
+            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/protein_predict.py --fasta_path {job_dir} --no_cuda {'--serotype' if pred_serotype == 'true' else ''} --top_k {top_k} {'--attn' if plot_attn == 'true' else ''}"
 
             subprocess.run(cmd, shell=True, check=True)
 
@@ -74,7 +74,7 @@ def run_protein_prediction(app, id, job_dir, pred_serotype, top_k):
             with open(os.path.join(job_dir, 'error.log'), 'w') as f:
                 f.write(str(e))
 
-def run_genome_prediction(app, id, job_dir, file_type, pred_serotype, top_k):
+def run_genome_prediction(app, id, job_dir, file_type, pred_serotype, top_k, plot_attn):
     with app.app_context():
         try:
             Jobs.query.get(id).status = 'Waiting in a queue'
@@ -83,7 +83,7 @@ def run_genome_prediction(app, id, job_dir, file_type, pred_serotype, top_k):
                 time.sleep(10)
             Jobs.query.get(id).status = 'Running'
             db.session.commit()
-            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/genome_predict.py --fasta_path {job_dir} --file_type {file_type} --no_cuda --serotype {'--serotype' if pred_serotype == 'true' else ''} --top_k {top_k}"
+            cmd = f"/public/yxshen/.conda/envs/DposFinder/bin/python DposFinder/genome_predict.py --fasta_path {job_dir} --file_type {file_type} --no_cuda {'--serotype' if pred_serotype == 'true' else ''} --top_k {top_k} {'--attn' if plot_attn == 'true' else ''}"
 
             subprocess.run(cmd, shell=True, check=True)
 
@@ -111,6 +111,7 @@ def download(filename):
 @app.route('/api/analysis/protein', methods=['GET', 'POST'])
 def analysis_protein():
     input_method = request.form.get('inputMethod')
+    plot_attn = request.form.get('plotAttn')
     pred_serotype = request.form.get('predSerotype')
     top_k = request.form.get('topK')
     if not request.headers.getlist("X-Forwarded-For"):
@@ -138,7 +139,7 @@ def analysis_protein():
         job = Jobs(job_id=job_id, ip=remote_ip, task='protein-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.now())
         db.session.add(job)
         db.session.commit()
-        thread = Thread(target=run_protein_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'pred_serotype': pred_serotype, 'top_k': top_k})
+        thread = Thread(target=run_protein_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'pred_serotype': pred_serotype, 'top_k': top_k, 'plot_attn': plot_attn})
         thread.start()
         return jsonify(message=f"Job {job.job_id} is successfully submitted", category="success", status=200)
     else:
@@ -150,6 +151,7 @@ def analysis_protein():
 @app.route('/api/analysis/genome', methods=['POST'])
 def analysis_genome():
     input_method = request.form.get('inputMethod')
+    plot_attn = request.form.get('plotAttn')
     pred_serotype = request.form.get('predSerotype')
     top_k = request.form.get('topK')
     if not request.headers.getlist("X-Forwarded-For"):
@@ -190,7 +192,7 @@ def analysis_genome():
         job = Jobs(job_id=job_id, ip=remote_ip, task='genome-level depolymerase prediction', num_sequence=num_sequence, status='Preprocessing', email='', submit_time=datetime.now())
         db.session.add(job)
         db.session.commit()
-        thread = Thread(target=run_genome_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'file_type': file_type, 'pred_serotype': pred_serotype, 'top_k': top_k})
+        thread = Thread(target=run_genome_prediction, kwargs={'app': app, 'id': job.id, 'job_dir': job_dir, 'file_type': file_type, 'pred_serotype': pred_serotype, 'top_k': top_k, 'plot_attn': plot_attn})
         thread.start()
         return jsonify(message=f"Job {job.job_id} is successfully submitted", category="success", status=200)
     else:
@@ -263,15 +265,21 @@ def get_attn_png(job_id, protein_id):
         return jsonify(message=f"Job ID:{job_id} is not existed.",
                        status=404)
     
-@app.route('/api/result/<job_id>/<protein_id>/ss', methods=['GET'])
-def get_secondary_structure(job_id, protein_id):
-    ss_file_path = os.path.join('./jobs', job_id, 'outputs', protein_id ,f'{protein_id}_ss.fasta')
-    results = read_secondary_structure(ss_file_path)
-
-    return jsonify(message="",
-                   category="success",
-                   data=results,
-                   status=200)
+@app.route('/api/result/<job_id>/<protein_id>/serotype', methods=['GET'])
+def get_serotype_result(job_id, protein_id):
+    job = Jobs.query.filter_by(job_id=job_id).first()
+    if job is not None:
+        protein_dir = os.path.join('./jobs', job_id, 'outputs', protein_id)
+        serotype_result = parse_serotype_result(protein_dir)
+        results = job.serialize
+        results['rows'] = json.loads(serotype_result)
+        return jsonify(message=f"Get {protein_id} serotype result",
+                        category="success",
+                        data=results,
+                        status=200)
+    else:
+        return jsonify(message=f"Job ID:{job_id} is not existed.",
+                       status=404)
 
 @app.route('/api/result/<job_id>/<protein_id>/blast', methods=['GET'])
 def get_blast_result(job_id, protein_id):
@@ -408,10 +416,22 @@ def get_attn(protein_id):
 def get_disorder(protein_id):
     disorder_file_path = os.path.join('./dpos_db/valid_dpos', protein_id, 'disorders.txt')
     results = read_disorder(disorder_file_path)
-
     return jsonify(message="",
                    category="success",
                    data=json.loads(results),
+                   status=200)
+@app.route('/api/protein/<protein_id>/context', methods=['GET'])
+def get_context_png(protein_id):
+    protein_dir = os.path.join('./dpos_db/valid_dpos', protein_id)
+    context_file = os.path.join(protein_dir, 'context.png')
+    return send_file(context_file, mimetype='image/jpeg')
+@app.route('/api/protein/<protein_id>/context_table', methods=['GET'])
+def get_context_table(protein_id):
+    protein_dir = os.path.join('./dpos_db/valid_dpos', protein_id)
+    context_table = parse_context_table(protein_dir)
+    return jsonify(message="",
+                   category="success",
+                   data=json.loads(context_table),
                    status=200)
 
 if __name__ == '__main__':

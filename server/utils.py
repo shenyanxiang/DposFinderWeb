@@ -54,6 +54,21 @@ def parse_blast_result(dir):
     result = df.to_json(orient='records')
     return result
 
+def parse_context_table(dir):
+    filename = os.path.join(dir, 'genes.csv')
+    df = pd.read_csv(filename)
+    df['coordinates'] = df.apply(lambda x: f'{x.start}...{x.end} (-)' if x.orietation == -1 else f'{x.start}...{x.end} (+)', axis=1)
+    df['gene'] = df['gene'].fillna('-')
+    result = df.to_json(orient='records')
+    return result
+
+def parse_serotype_result(dir):
+    filename = os.path.join(dir, 'predicted_serotype.csv')
+    df = pd.read_csv(filename)
+    df = df[['score', 'predict_Ktype']]
+    result = df.to_json(orient='records')
+    return result
+
 def read_secondary_structure(file):
     with open(file, 'r') as f:
         lines = f.readlines()
